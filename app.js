@@ -1086,6 +1086,45 @@
           }
         }
       })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'workshops',
+        filter: 'id=eq.' + state.workshop.id
+      }, async (payload) => {
+        const nextStatus = payload.new && payload.new.status;
+        if (nextStatus === 'locked') {
+          state.locked = true;
+          renderCurrentStep();
+          setSaveState('Результаты зафиксированы тренером', 'saved');
+          return;
+        }
+        if (nextStatus === 'active') {
+          const { data: membership, error } = await state.client
+            .from('team_memberships')
+            .select('team_id')
+            .eq('workshop_id', state.workshop.id)
+            .eq('user_id', state.user.id)
+            .maybeSingle();
+          if (error) {
+            console.error('Membership refresh after workshop update:', error);
+            return;
+          }
+          state.locked = false;
+          if (!membership) {
+            stopRealtime();
+            state.answers.clear();
+            state.team = null;
+            state.currentStep = 1;
+            state.maxStep = 1;
+            renderTeams();
+            showScreen('teamSelectionScreen');
+            setConnection('Прогресс сброшен тренером — выберите команду');
+          } else {
+            await openWorkspace();
+          }
+        }
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') setConnection('Командная синхронизация активна');
       });
@@ -1144,7 +1183,11 @@
   $('switchTeamButton').addEventListener('click', switchTeam);
   $('trainerAccessButton').addEventListener('click', showTrainerPanel);
   $('trainerAccessButton2').addEventListener('click', async () => {
-    await flushQueue();
+    const saved = await flushQueue();
+    if (!saved) {
+      window.alert('Не все изменения удалось сохранить. Дождитесь синхронизации и повторите попытку.');
+      return;
+    }
     showTrainerPanel();
   });
   $('trainerBackButton').addEventListener('click', leaveTrainerPanel);
