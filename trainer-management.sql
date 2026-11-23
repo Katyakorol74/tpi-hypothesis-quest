@@ -46,6 +46,20 @@ begin
 end;
 $$;
 
+create or replace function public.is_workshop_archived(p_join_code text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $
+  select coalesce((
+    select w.is_archived
+    from public.workshops w
+    where upper(trim(w.join_code)) = upper(trim(p_join_code))
+    limit 1
+  ), false);
+$;
 create or replace function public.trainer_list_workshops()
 returns jsonb
 language plpgsql
@@ -212,11 +226,13 @@ end;
 $$;
 
 revoke all on function public.is_tpi_trainer() from public, anon;
+revoke all on function public.is_workshop_archived(text) from public, anon;
 revoke all on function public.trainer_list_workshops() from public, anon;
 revoke all on function public.trainer_archive_workshop(uuid) from public, anon;
 revoke all on function public.trainer_restore_workshop(uuid) from public, anon;
 revoke all on function public.trainer_reset_workshop(uuid) from public, anon;
 
+grant execute on function public.is_workshop_archived(text) to authenticated;
 grant execute on function public.trainer_list_workshops() to authenticated;
 grant execute on function public.trainer_archive_workshop(uuid) to authenticated;
 grant execute on function public.trainer_restore_workshop(uuid) to authenticated;
