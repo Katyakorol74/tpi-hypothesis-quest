@@ -466,7 +466,7 @@
       html += '<label>Основная метрика<input type="text" data-team-result-field="metric_name" value="' + escapeHtml(saved.metric_name || metric) + '" placeholder="Например: доля заказов с просрочкой"></label>';
       html += '<label>Единица измерения<input type="text" data-team-result-field="metric_unit" value="' + escapeHtml(saved.metric_unit || '') + '" placeholder="%, шт., часы, баллы…"></label>';
       html += '<label>Baseline — значение до теста<input type="text" data-team-result-field="baseline_value" value="' + escapeHtml(saved.baseline_value || '') + '" placeholder="Зафиксированное исходное значение"></label>';
-      html += '<label>Целевое значение<input type="text" data-team-result-field="target_value" value="' + escapeHtml(saved.target_value || targetDescription) + '" placeholder="Какого значения хотели достичь?"></label>';
+      html += '<label>Целевое значение<input type="text" data-team-result-field="target_value" value="' + escapeHtml(saved.target_value || trainerAnswerText(answers, 'hypothesis_then') || targetDescription) + '" placeholder="Какого значения хотели достичь?"></label>';
       html += '<label>Фактический результат<input type="text" data-team-result-field="actual_value" value="' + escapeHtml(saved.actual_value || '') + '" placeholder="Что получили после проверки?"></label>';
       html += '<label>Оценка результата<select data-team-result-field="outcome"><option value="">Выберите оценку…</option>';
       [['met','Цель достигнута'],['partial','Частично достигнута'],['not_met','Цель не достигнута'],['inconclusive','Недостаточно данных']].forEach(([value,label]) => {
