@@ -583,7 +583,7 @@
       html += '<div class="prior-work-empty">На предыдущих этапах команда пока не записала собственные версии. Можно начать с фактов и вопросов, уже представленных в диаграмме.</div>';
     }
 
-    html += '<div class="fishbone-board"><div class="fishbone-grid">';
+    html += '<div class="fishbone-board"><svg class="fishbone-connectors" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishboneArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M38 350 L1000 350" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishboneArrow)"/><path d="M205 350 L145 115 M535 350 L535 115 M850 350 L925 115 M355 350 L290 585 M690 350 L690 585 M1035 350 L1090 585" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/></svg><div class="fishbone-grid">
     fishboneCategories.forEach((cat) => {
       const items = allCauses.filter((item) => item.category === cat.key);
       html += '<article class="fishbone-branch"><div class="branch-head"><span>' + escapeHtml(cat.en) + '</span><h4>' + escapeHtml(cat.title) + '</h4></div>';
@@ -667,7 +667,9 @@
   }
 
     function renderExperimentStep() {
-    let html = '<div class="mvt-intro"><div class="eyebrow">Safe-to-fail · MVT</div><h3>Минимальный тест вместо полного внедрения</h3><p>Проверьте ключевое предположение минимальными затратами. Не нужно разрабатывать новую систему или перестраивать весь процесс.</p></div>';
+    const chosenCause = collectCauseItems().find((item) => item.id === textValue('ice_primary_cause_id'));
+    const hypothesisPreview = 'Если ' + (textValue('hypothesis_if') || '[действие не указано]') + ', то ' + (textValue('hypothesis_then') || '[результат не указан]') + ', потому что ' + (textValue('hypothesis_because') || '[механизм не указан]') + '.';
+    let html = '<div class="mvt-intro"><div class="eyebrow">Safe-to-fail · MVT</div><h3>Проверьте решение, которое вы сами спроектировали</h3><p>Не начинайте новый кейс. Выбранное направление и формулировка гипотезы переносятся сюда автоматически. Спроектируйте минимальную и безопасную проверку.</p><div class="mvt-chain"><div><small>Ваше направление</small><strong>' + escapeHtml(chosenCause ? chosenCause.text : 'Не выбрано') + '</strong></div><div><small>Ваша гипотеза</small><strong>' + escapeHtml(hypothesisPreview) + '</strong></div></div></div>';
     html += '<div class="experiment-layout"><div class="exercise-panel"><h3>Выберите методы проверки</h3><p class="muted">Бюджет команды — 80 условных единиц. Можно выбрать один метод или комбинацию.</p><div class="method-list">';
     const selectedValue = rawValue('method_selection');
     const selectedMethods = selectedValue && Array.isArray(selectedValue.methods) ? selectedValue.methods : [];
