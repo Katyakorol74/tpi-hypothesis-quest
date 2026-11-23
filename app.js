@@ -44,19 +44,19 @@
   ];
 
   const ladderItems = [
-    { id: '01', text: 'За три месяца 18 из 60 заказов выполнены с нарушением срока.', correct: 'fact', why: 'Это числовые данные о выполнении заказов.' },
-    { id: '02', text: 'Руководитель обратил внимание на 8 случаев позднего обновления статуса из 20.', correct: 'selection', why: 'Сам показатель 8 из 20 — факт, но выделение именно этого показателя — отбор информации.' },
-    { id: '03', text: 'Сотрудники безответственно относятся к работе.', correct: 'interpretation', why: 'Это оценка поведения, а не непосредственно измеряемое событие.' },
-    { id: '04', text: 'Вероятно, сотрудники не понимают важность своевременной информации.', correct: 'assumption', why: 'Это возможное объяснение, которое пока не подтверждено.' },
-    { id: '05', text: 'Основная причина просрочек — недостаточная дисциплина.', correct: 'conclusion', why: 'Это вывод о причине на основании ограниченной информации.' },
-    { id: '06', text: 'Без постоянного контроля сотрудники не соблюдают сроки.', correct: 'belief', why: 'Это обобщённое убеждение руководителя о том, как работает система.' },
-    { id: '07', text: 'Руководитель вводит ежедневные отчёты и персональные KPI.', correct: 'action', why: 'Это конкретное управленческое действие, вытекающее из убеждения.' },
-    { id: '08', text: 'После утверждения недельного плана поступило 12 срочных поручений.', correct: 'fact', why: 'В кейсе указано конкретное количество срочных поручений.' },
-    { id: '09', text: 'Руководитель выделил позднее обновление статусов среди других факторов.', correct: 'selection', why: 'Это выбор части информации, на которой сосредоточили внимание.' },
-    { id: '10', text: 'Сотрудники не справляются с нагрузкой, потому что не умеют расставлять приоритеты.', correct: 'interpretation', why: 'Это объяснение ситуации; оно может содержать допущение и требует проверки.' }
+    { id: '01', text: 'За три месяца 18 из 60 заказов выполнены с нарушением срока.', correct: ['fact'], why: 'Это объективные числовые данные о заказах.' },
+    { id: '02', text: 'Руководитель обратил внимание на 8 случаев позднего обновления статуса из 20.', correct: ['selection'], why: 'Сам показатель 8 из 20 — факт. Но фокус руководителя именно на нём — отбор части данных.' },
+    { id: '03', text: 'Сотрудники не обновляют статусы, потому что безответственно относятся к работе.', correct: ['interpretation'], why: 'Факт позднего обновления соединён с оценочным объяснением поведения сотрудников.' },
+    { id: '04', text: 'Вероятно, сотрудники не понимают важность своевременной информации.', correct: ['assumption'], why: 'Это возможная версия мотивации сотрудников, которая пока не подтверждена.' },
+    { id: '05', text: 'Основная причина просрочек — недостаточная дисциплина.', correct: ['conclusion'], why: 'Это вывод о главной причине на основании ограниченного набора данных.' },
+    { id: '06', text: 'Без постоянного контроля сотрудники не соблюдают сроки.', correct: ['belief'], why: 'Это обобщённое убеждение о том, как сотрудники ведут себя без контроля.' },
+    { id: '07', text: 'Руководитель вводит ежедневные отчёты и персональные KPI.', correct: ['action'], why: 'Это управленческое действие, которое следует из сформированного вывода и убеждения.' },
+    { id: '08', text: 'После утверждения недельного плана поступило 12 срочных поручений.', correct: ['fact'], why: 'В кейсе указано конкретное количество срочных поручений.' },
+    { id: '09', text: 'Руководитель выделил позднее обновление статусов среди других факторов.', correct: ['selection'], why: 'Руководитель выбрал один фрагмент информации, оставив остальные факторы вне фокуса.' },
+    { id: '10', text: 'Сотрудники не справляются с нагрузкой, потому что не умеют расставлять приоритеты.', correct: ['interpretation', 'assumption'], why: 'Это объяснение нагрузки через предполагаемый дефицит навыка. В ключе допускается интерпретация/допущение — попросите команду объяснить логику.' }
   ];
 
-  const ladderOptions = [
+    const ladderOptions = [
     ['fact', 'Объективная реальность / факт'],
     ['selection', 'Отбор информации'],
     ['interpretation', 'Интерпретация'],
@@ -340,6 +340,7 @@
 
   function renderProblemStep() {
     const selected = textValue('problem_choice');
+    const custom = textValue('problem_custom');
     let html = '<div class="case-memo">';
     html += '<div class="memo-top"><span class="memo-stamp">СЛУЖЕБНАЯ ЗАПИСКА</span><span class="memo-number">№ 14/ПР · ВНУТРЕННИЙ ДОКУМЕНТ</span></div>';
     html += '<h3>О систематическом нарушении сроков выполнения заказов</h3>';
@@ -350,20 +351,23 @@
     html += '<div><small>Месяц 2</small><strong>6 из 20</strong><em>30% просрочек</em></div>';
     html += '<div><small>Месяц 3</small><strong>7 из 20</strong><em>35% просрочек</em></div>';
     html += '<div class="memo-data-total"><small>Всего за период</small><strong>18 из 60</strong><em>30% заказов</em></div>';
-    html += '</div><div class="memo-ask"><strong>Поручение рабочей группе</strong><p>Определите, в чём заключается главная проблема, прежде чем предлагать меры по её устранению.</p></div></div>';
-    html += '<section class="exercise-panel"><div class="exercise-kicker">Вопрос 01 · Первая реакция</div><h3>Что здесь является главной проблемой?</h3><p class="muted">Выберите одно утверждение. Пока не объясняйте причины — сформулируйте только то, что происходит.</p>';
+    html += '</div><div class="memo-ask"><strong>Поручение рабочей группе</strong><p>Сформулируйте главную проблему. Затем зафиксируйте свою первую версию причины и первое управленческое действие. Вернёмся к ним после изучения инструментов.</p></div></div>';
+    html += '<section class="exercise-panel"><div class="exercise-kicker">Вопрос 01 · Что является проблемой?</div><h3>Выберите главную проблему</h3><p class="muted">Выберите формулировку, которая точнее всего описывает наблюдаемую ситуацию. Не подменяйте проблему предполагаемой причиной.</p>';
     problemOptions.forEach((option) => {
       html += '<label class="choice-card ' + (selected === option.value ? 'selected' : '') + '"><input type="radio" name="problemChoice" value="' + option.value + '" ' + (selected === option.value ? 'checked' : '') + '><span class="choice-radio"></span><span class="choice-copy"><strong>' + escapeHtml(option.title) + '</strong><small>' + escapeHtml(option.note) + '</small></span></label>';
     });
-    if (selected) {
-      const chosen = problemOptions.find((option) => option.value === selected);
-      html += '<div class="feedback-note"><strong>Выбор команды сохранён.</strong><br>' + escapeHtml(chosen ? chosen.title : '') + '<br><span>После продолжения откроется решение руководителя. К этому выбору можно будет вернуться.</span></div>';
-    }
+    html += '<label class="choice-card custom-choice ' + (selected === 'custom' ? 'selected' : '') + '"><input type="radio" name="problemChoice" value="custom" ' + (selected === 'custom' ? 'checked' : '') + '><span class="choice-radio"></span><span class="choice-copy"><strong>Своя формулировка</strong><small>Предложите вариант команды, если он отличается от списка.</small></span></label>';
+    if (selected === 'custom') html += '<textarea class="standalone-textarea" data-field-key="problem_custom" placeholder="Сформулируйте главную проблему своими словами…">' + escapeHtml(custom) + '</textarea>';
+    html += '</section>';
+    html += '<section class="exercise-panel initial-reaction"><div class="exercise-kicker">Зафиксируйте первую реакцию команды</div><h3>Пока не проверяем, просто записываем</h3><p class="muted">Сохраните собственную логику до знакомства с инструментами. Позже вы сравните её с фактами и решениями руководителя.</p>';
+    html += renderTextCard('team_initial_cause', '1. В чём, на ваш взгляд, причина?', 'Запишите первую версию команды. Причина пока не обязана быть доказанной.', textValue('team_initial_cause'), true);
+    html += renderTextCard('team_initial_action', '2. Что вы предложили бы сделать?', 'Какое первое действие вы бы выбрали как руководитель?', textValue('team_initial_action'), true);
+    html += renderTextCard('team_initial_evidence', '3. На какие данные вы опираетесь?', 'Укажите конкретные факты, которые поддерживают вашу версию. Если данных пока нет — так и напишите.', textValue('team_initial_evidence'), true);
     html += '</section>';
     return html;
   }
 
-  function renderManagerStep() {
+    function renderManagerStep() {
     const choice = problemOptions.find((option) => option.value === textValue('problem_choice'));
     let html = '<div class="reveal-banner"><span class="reveal-icon">!</span><div><div class="eyebrow">Новая информация по делу</div><h3>Как отреагировал руководитель</h3><p>В учебной ситуации руководитель выбрал быстрое объяснение: решил, что основная проблема — недостаточная дисциплина сотрудников.</p></div></div>';
     html += '<div class="choice-review"><small>Ваш первоначальный выбор</small><strong>' + escapeHtml(choice ? choice.title : 'Команда ещё не зафиксировала выбор') + '</strong><span>Сравните своё определение проблемы с тем, как руководитель интерпретировал ситуацию.</span></div>';
@@ -377,28 +381,47 @@
   }
 
   function renderFactsStep() {
-    let html = '<div class="ladder-intro"><div class="ladder-stat"><strong>10</strong><span>утверждений из кейса</span></div><div><h3>Поднимитесь по лестнице умозаключений</h3><p>Руководитель выбирает часть данных, придаёт им значение, формирует объяснение и действует. Разложите каждое высказывание по ступени, к которой оно относится.</p></div></div>';
-    html += '<div class="classification-legend"><span>Факт</span><span>Отбор данных</span><span>Интерпретация</span><span>Допущение</span><span>Вывод</span><span>Убеждение</span><span>Действие</span></div>';
+    const checked = textValue('facts_checked') === 'yes';
+    const answered = ladderItems.filter((item) => textValue('classify_' + item.id)).length;
+    const correctCount = ladderItems.filter((item) => {
+      const answer = textValue('classify_' + item.id);
+      return answer && item.correct.includes(answer);
+    }).length;
+
+    let html = '<div class="ladder-intro"><div class="ladder-stat"><strong>10</strong><span>утверждений</span></div><div><h3>Поднимитесь по лестнице умозаключений</h3><p>Разложите высказывания по ступеням. Сначала ответьте самостоятельно, затем нажмите «Проверить ответы». Неверные варианты подсветятся красным, верные — зелёным.</p></div></div>';
+    html += '<div class="classification-legend"><span>Объективная реальность</span><span>Отбор информации</span><span>Интерпретация</span><span>Допущение</span><span>Вывод</span><span>Убеждение</span><span>Действие</span></div>';
     html += '<div class="ladder-list">';
     ladderItems.forEach((item) => {
       const selected = textValue('classify_' + item.id);
-      html += '<article class="ladder-card"><div class="ladder-id">' + item.id + '</div><div class="ladder-statement">' + escapeHtml(item.text) + '</div><select data-field-key="classify_' + item.id + '" aria-label="Ступень высказывания"><option value="">Выберите ступень…</option>';
+      const correct = selected && item.correct.includes(selected);
+      const rowClass = checked ? (correct ? 'is-correct' : 'is-wrong') : '';
+      const chosenLabel = ladderOptions.find((pair) => pair[0] === selected);
+      const correctLabels = item.correct.map((value) => ladderOptions.find((pair) => pair[0] === value)?.[1] || value);
+      html += '<article class="ladder-card ' + rowClass + '"><div class="ladder-id">' + item.id + '</div><div class="ladder-statement">' + escapeHtml(item.text) + '</div><select data-field-key="classify_' + item.id + '" aria-label="Ступень высказывания" ' + (state.locked ? 'disabled' : '') + '><option value="">Выберите ступень…</option>';
       ladderOptions.forEach(([value, label]) => {
         html += '<option value="' + value + '" ' + (selected === value ? 'selected' : '') + '>' + escapeHtml(label) + '</option>';
       });
       html += '</select>';
-      if (textValue('facts_checked') === 'yes') {
-        html += '<div class="ladder-answer"><b>Ключ:</b> ' + escapeHtml(ladderOptions.find((pair) => pair[0] === item.correct)[1]) + '<br><small>' + escapeHtml(item.why) + '</small></div>';
+      if (checked) {
+        html += '<div class="ladder-feedback ' + (correct ? 'correct' : 'wrong') + '"><strong>' + (correct ? '✓ Верно' : '✕ Неверно') + '</strong><span>' + (correct ? 'Вы выбрали: ' + escapeHtml(chosenLabel ? chosenLabel[1] : '') : 'Правильный вариант: ' + escapeHtml(correctLabels.join(' / '))) + '</span><small>' + escapeHtml(item.why) + '</small></div>';
       }
       html += '</article>';
     });
     html += '</div>';
-    html += '<div class="check-panel"><div><strong>Проверка классификации</strong><p>Сначала распределите утверждения, затем откройте ключ и обсудите расхождения.</p></div><button class="button secondary" id="checkFactsButton">' + (textValue('facts_checked') === 'yes' ? 'Ключ открыт' : 'Показать ключ') + '</button></div>';
-    html += '<div class="insight-strip"><strong>Важно:</strong> позднее обновление статуса — факт. Но утверждение «из-за этого сорвался срок» — уже причинная версия. Она требует проверки.</div>';
+    html += '<div class="check-panel"><div><strong>' + (checked ? 'Результат проверки' : 'Проверьте классификацию') + '</strong><p>' + (checked ? 'Верных ответов: ' + correctCount + ' из 10. Красные карточки требуют пересмотра.' : 'Распределите утверждения и проверьте себя. Для разбора нужны все 10 ответов.') + '</p></div><button class="button ' + (checked ? 'secondary' : 'primary') + '" id="checkFactsButton" ' + (answered < 10 || state.locked ? 'disabled' : '') + '>' + (checked ? 'Обновить проверку' : 'Проверить ответы') + '</button></div>';
+    html += '<div class="insight-strip"><strong>Важно:</strong> у одного высказывания могут быть две смысловые части. Для пункта 10 ключ допускает интерпретацию или допущение — команда должна объяснить свою логику.</div>';
+    html += '<section class="own-ladder-panel"><div class="exercise-kicker">Теперь вернитесь к собственной версии</div><h3>Спуститесь по лестнице назад</h3><p class="muted">Посмотрите на свою первую реакцию в начале кейса. Не переписывайте её задним числом — разберите, как вы пришли к этому решению.</p>';
+    html += '<div class="own-work-summary"><small>Первая версия причины</small><p>' + escapeHtml(textValue('team_initial_cause') || 'На первом этапе команда не записала причину.') + '</p><small>Первое предложенное действие</small><p>' + escapeHtml(textValue('team_initial_action') || 'На первом этапе команда не записала действие.') + '</p></div>';
+    html += '<div class="hypothesis-grid">';
+    html += renderTextCard('own_ladder_fact', 'Какие факты действительно подтверждают вашу версию?', 'Отделите наблюдаемые данные от объяснения.', textValue('own_ladder_fact'), false);
+    html += renderTextCard('own_ladder_interpretation', 'Как вы интерпретировали эти факты?', 'Какой смысл или оценку вы добавили?', textValue('own_ladder_interpretation'), false);
+    html += renderTextCard('own_ladder_assumption', 'Какое допущение вы приняли?', 'Что сочли верным, не проверив?', textValue('own_ladder_assumption'), false);
+    html += renderTextCard('own_ladder_ignored', 'Какие данные могли упустить?', 'На что вы не обратили внимания, когда сформировали первую версию?', textValue('own_ladder_ignored'), false);
+    html += '</div></section>';
     return html;
   }
 
-  function renderFishboneStep() {
+    function renderFishboneStep() {
     let html = '<div class="fishbone-intro"><div><div class="eyebrow">Системный анализ · 6M</div><h3>От фактов — к возможным причинам</h3><p>В центре диаграммы — проблема. На ветви перенесены известные сведения кейса и вопросы, по которым пока нет данных. Добавьте версии причин и отметьте их статус.</p></div><div class="fishbone-status-legend"><span class="tag fact">Факт кейса</span><span class="tag hypothesis">Предположение</span><span class="tag unknown">Неизвестно</span></div></div>';
     html += '<div class="fishbone-board"><svg class="fishbone-svg" viewBox="0 0 1200 500" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M45 250 L1110 250" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishArrow)"/><path d="M190 70 L315 250 M515 70 L575 250 M840 70 L815 250 M335 430 L440 250 M665 430 L700 250 M990 430 L950 250" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/><circle cx="315" cy="250" r="7" fill="#d94b3d"/><circle cx="575" cy="250" r="7" fill="#d94b3d"/><circle cx="815" cy="250" r="7" fill="#d94b3d"/><circle cx="440" cy="250" r="7" fill="#d94b3d"/><circle cx="700" cy="250" r="7" fill="#d94b3d"/><circle cx="950" cy="250" r="7" fill="#d94b3d"/></svg>';
     html += '<div class="fishbone-grid">';
