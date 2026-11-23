@@ -14,6 +14,8 @@
     locked: false,
     isTrainer: false,
     trainerWorkshops: [],
+    trainerSelectedWorkshop: null,
+    trainerTeamFollowups: [],
     followupPublished: false,
     followupPublishedAt: null,
     followupResults: null,
@@ -365,6 +367,172 @@
     }
   }
 
+
+  function unwrapTrainerAnswer(value) {
+    if (value && typeof value === 'object' && !Array.isArray(value) &&
+        typeof value.text === 'string' && Object.keys(value).every((key) => key === 'text')) {
+      return value.text;
+    }
+    return value;
+  }
+
+  function trainerAnswerText(answers, key) {
+    const value = unwrapTrainerAnswer((answers || {})[key]);
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return '';
+  }
+
+  function selectedCauseFromTeamAnswers(answers) {
+    const primaryId = trainerAnswerText(answers, 'ice_primary_cause_id');
+    if (!primaryId) return '';
+    for (const [key, raw] of Object.entries(answers || {})) {
+      if (!key.startsWith('cause_') || !raw || typeof raw !== 'object') continue;
+      const cause = unwrapTrainerAnswer(raw);
+      if (cause && typeof cause === 'object' && String(cause.id || '') === primaryId) {
+        return String(cause.text || '');
+      }
+    }
+    return '';
+  }
+
+  async function openTrainerTeamResults(workshopId) {
+    const workshop = state.trainerWorkshops.find((item) => item.id === workshopId);
+    if (!workshop) return;
+    state.trainerSelectedWorkshop = workshop;
+    $('trainerWorkshopList').classList.add('hidden');
+    $('trainerTeamResultsPanel').classList.remove('hidden');
+    $('trainerTeamResultsPanel').innerHTML = '<div class="trainer-empty">Загружаем команды и их гипотезы…</div>';
+    $('trainerStatus').textContent = '';
+    try {
+      const { data, error } = await state.client.rpc('trainer_get_team_followups', {
+        p_workshop_id: workshopId
+      });
+      if (error) throw error;
+      state.trainerTeamFollowups = Array.isArray(data) ? data : [];
+      renderTrainerTeamResults();
+    } catch (error) {
+      console.error('Load team results:', error);
+      $('trainerTeamResultsPanel').innerHTML = '<div class="trainer-empty">' + escapeHtml(error.message || 'Не удалось загрузить команды.') + '</div>';
+    }
+  }
+
+  function renderTrainerTeamResults() {
+    const target = $('trainerTeamResultsPanel');
+    const workshop = state.trainerSelectedWorkshop;
+    if (!workshop) return;
+
+    const publishedCount = state.trainerTeamFollowups.filter((team) => team.is_published).length;
+    let html = '<div class="trainer-team-results-heading"><div><div class="eyebrow">Индивидуальные результаты · ' + escapeHtml(workshop.join_code || '') + '</div><h2>' + escapeHtml(workshop.name || 'Поток') + '</h2><p class="muted">Заполняйте фактические итоги по плану каждой команды. Публикация одной команды не открывает результаты остальным.</p></div><div class="trainer-team-results-heading-actions"><span class="trainer-followup-state">Опубликовано: ' + publishedCount + ' из ' + state.trainerTeamFollowups.length + '</span><button type="button" class="button secondary" data-team-results-action="back">← К списку потоков</button></div></div>';
+
+    if (!state.trainerTeamFollowups.length) {
+      html += '<div class="trainer-empty">В этом потоке пока нет команд.</div>';
+      target.innerHTML = html;
+      return;
+    }
+
+    html += '<div class="trainer-team-results-list">';
+    state.trainerTeamFollowups.forEach((team, index) => {
+      const answers = team.answers || {};
+      const saved = team.results || {};
+      const cause = selectedCauseFromTeamAnswers(answers);
+      const hypothesis = [
+        'Если ' + trainerAnswerText(answers, 'hypothesis_if'),
+        'то ' + trainerAnswerText(answers, 'hypothesis_then'),
+        'потому что ' + trainerAnswerText(answers, 'hypothesis_because')
+      ].filter((part) => part.trim().length > 5).join(', ');
+      const metric = trainerAnswerText(answers, 'hypothesis_metric');
+      const planAction = trainerAnswerText(answers, 'experiment_action');
+      const targetDescription = trainerAnswerText(answers, 'experiment_success');
+      const status = team.is_published ? 'Результаты опубликованы команде' : (team.results ? 'Черновик сохранён' : 'Результаты ещё не заполнены');
+      const statusClass = team.is_published ? 'published' : 'draft';
+
+      html += '<article class="trainer-team-result-card" data-team-result-card data-team-id="' + escapeHtml(team.team_id) + '">';
+      html += '<div class="trainer-team-result-card-head"><div><div class="eyebrow">Команда ' + (index + 1) + '</div><h3>' + escapeHtml(team.team_name || 'Команда') + '</h3></div><span class="trainer-team-result-status ' + statusClass + '">' + status + '</span></div>';
+
+      html += '<div class="trainer-team-hypothesis-brief">';
+      html += '<div><small>Выбранная причина</small><p>' + escapeHtml(cause || 'Команда не сохранила выбранную причину') + '</p></div>';
+      html += '<div><small>Гипотеза команды</small><p>' + escapeHtml(hypothesis || 'Гипотеза не заполнена') + '</p></div>';
+      html += '<div><small>Основная метрика из плана</small><p>' + escapeHtml(metric || 'Метрика не указана') + '</p></div>';
+      html += '<div><small>Планируемое действие</small><p>' + escapeHtml(planAction || 'Не указано') + '</p></div>';
+      if (targetDescription) html += '<div><small>Критерии успеха из плана</small><p>' + escapeHtml(targetDescription) + '</p></div>';
+      html += '</div>';
+
+      html += '<div class="trainer-team-result-fields">';
+      html += '<label>Основная метрика<input type="text" data-team-result-field="metric_name" value="' + escapeHtml(saved.metric_name || metric) + '" placeholder="Например: доля заказов с просрочкой"></label>';
+      html += '<label>Единица измерения<input type="text" data-team-result-field="metric_unit" value="' + escapeHtml(saved.metric_unit || '') + '" placeholder="%, шт., часы, баллы…"></label>';
+      html += '<label>Baseline — значение до теста<input type="text" data-team-result-field="baseline_value" value="' + escapeHtml(saved.baseline_value || '') + '" placeholder="Зафиксированное исходное значение"></label>';
+      html += '<label>Целевое значение<input type="text" data-team-result-field="target_value" value="' + escapeHtml(saved.target_value || targetDescription) + '" placeholder="Какого значения хотели достичь?"></label>';
+      html += '<label>Фактический результат<input type="text" data-team-result-field="actual_value" value="' + escapeHtml(saved.actual_value || '') + '" placeholder="Что получили после проверки?"></label>';
+      html += '<label>Оценка результата<select data-team-result-field="outcome"><option value="">Выберите оценку…</option>';
+      [['met','Цель достигнута'],['partial','Частично достигнута'],['not_met','Цель не достигнута'],['inconclusive','Недостаточно данных']].forEach(([value,label]) => {
+        html += '<option value="' + value + '" ' + (saved.outcome === value ? 'selected' : '') + '>' + label + '</option>';
+      });
+      html += '</select></label>';
+      html += '<label>Выборка и период проверки<input type="text" data-team-result-field="sample_period" value="' + escapeHtml(saved.sample_period || '') + '" placeholder="Например: 30 заказов за 4 недели"></label>';
+      html += '<label class="full">Дополнительные показатели и наблюдения<textarea data-team-result-field="supporting_metrics" placeholder="Какие дополнительные метрики изменились?">' + escapeHtml(saved.supporting_metrics || '') + '</textarea></label>';
+      html += '<label class="full">Побочные эффекты и влияние на процесс<textarea data-team-result-field="side_effects" placeholder="Нагрузка, удобство, качество, безопасность и другие эффекты…">' + escapeHtml(saved.side_effects || '') + '</textarea></label>';
+      html += '<label class="full">Внешние факторы и альтернативные объяснения<textarea data-team-result-field="external_factors" placeholder="Что ещё могло повлиять на результат, кроме тестируемого действия?">' + escapeHtml(saved.external_factors || '') + '</textarea></label>';
+      html += '<label class="full">Ограничения данных<textarea data-team-result-field="limitations" placeholder="Размер выборки, отсутствие контрольной группы, неполные данные…">' + escapeHtml(saved.limitations || '') + '</textarea></label>';
+      html += '<label class="full">Комментарий тренера / вывод по результату<textarea data-team-result-field="trainer_conclusion" placeholder="Что команда должна учитывать при принятии решения?">' + escapeHtml(saved.trainer_conclusion || '') + '</textarea></label>';
+      html += '</div>';
+
+      html += '<div class="trainer-team-result-actions"><button type="button" class="button secondary" data-team-result-action="save">Сохранить черновик</button><button type="button" class="button primary" data-team-result-action="publish">' + (team.is_published ? 'Обновить публикацию' : 'Опубликовать этой команде') + '</button></div>';
+      html += '</article>';
+    });
+    html += '</div>';
+    target.innerHTML = html;
+  }
+
+  async function saveTrainerTeamResult(button, publish) {
+    const card = button.closest('[data-team-result-card]');
+    if (!card || !state.trainerSelectedWorkshop) return;
+    const results = {};
+    card.querySelectorAll('[data-team-result-field]').forEach((field) => {
+      results[field.dataset.teamResultField] = field.value.trim();
+    });
+
+    if (publish) {
+      const required = ['metric_name','baseline_value','target_value','actual_value','outcome'];
+      const missing = required.filter((key) => !results[key]);
+      if (missing.length) {
+        window.alert('Перед публикацией заполните: название метрики, baseline, целевое и фактическое значения, оценку результата.');
+        return;
+      }
+      if (!window.confirm('Опубликовать месячные результаты только для ' + (card.querySelector('h3')?.textContent || 'этой команды') + '? Остальные команды их не увидят.')) return;
+    }
+
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach((item) => { item.disabled = true; });
+    try {
+      const { error } = await state.client.rpc('trainer_save_team_followup', {
+        p_workshop_id: state.trainerSelectedWorkshop.id,
+        p_team_id: card.dataset.teamId,
+        p_results: results,
+        p_publish: publish
+      });
+      if (error) throw error;
+      const { data, error: reloadError } = await state.client.rpc('trainer_get_team_followups', {
+        p_workshop_id: state.trainerSelectedWorkshop.id
+      });
+      if (reloadError) throw reloadError;
+      state.trainerTeamFollowups = Array.isArray(data) ? data : [];
+      renderTrainerTeamResults();
+      $('trainerStatus').textContent = publish
+        ? 'Результаты опубликованы только выбранной команде.'
+        : 'Черновик результатов сохранён.';
+      const { data: workshops } = await state.client.rpc('trainer_list_workshops');
+      state.trainerWorkshops = Array.isArray(workshops) ? workshops : state.trainerWorkshops;
+      renderTrainerWorkshops();
+      $('trainerWorkshopList').classList.add('hidden');
+      $('trainerTeamResultsPanel').classList.remove('hidden');
+    } catch (error) {
+      console.error('Save team results:', error);
+      $('trainerStatus').textContent = error.message || 'Не удалось сохранить результаты.';
+      buttons.forEach((item) => { item.disabled = false; });
+    }
+  }
+
   function renderTrainerWorkshops() {
     const target = $('trainerWorkshopList');
     const items = state.trainerWorkshops || [];
@@ -378,7 +546,7 @@
       const locked = workshop.status === 'locked';
       const label = archived ? 'В архиве' : (locked ? 'Результаты зафиксированы' : 'Активный поток');
       const date = workshop.created_at ? new Date(workshop.created_at).toLocaleString('ru-RU') : '';
-      const followupLabel = workshop.followup_published ? 'Месячный этап открыт' : 'Месячный этап закрыт';
+      const followupLabel = 'Опубликовано командам: ' + Number(workshop.followup_published_count || 0) + ' из ' + Number(workshop.team_count || 0);
       return '<article class="trainer-workshop-card">' +
         '<div class="trainer-workshop-main">' +
           '<div class="trainer-workshop-title"><h3>' + escapeHtml(workshop.name || 'Без названия') + '</h3><span class="trainer-status-pill ' + (archived ? 'archived' : locked ? 'locked' : 'active') + '">' + label + '</span></div>' +
@@ -387,7 +555,7 @@
         '<div class="trainer-workshop-actions">' +
           '<button type="button" class="button secondary" data-trainer-action="copy" data-workshop-code="' + escapeHtml(workshop.join_code || '') + '">Ссылка потока</button>' +
           '<span class="trainer-followup-state">' + followupLabel + '</span>' +
-          (!archived && !workshop.followup_published ? '<button type="button" class="button primary" data-trainer-action="publish-monthly" data-workshop-id="' + escapeHtml(workshop.id) + '">Открыть этап через месяц</button>' : '') +
+          (!archived ? '<button type="button" class="button primary" data-trainer-action="team-results" data-workshop-id="' + escapeHtml(workshop.id) + '">Результаты по командам</button>' : '') +
           (archived
             ? '<button type="button" class="button secondary" data-trainer-action="restore" data-workshop-id="' + escapeHtml(workshop.id) + '">Вернуть из архива</button>'
             : '<button type="button" class="button secondary" data-trainer-action="archive" data-workshop-id="' + escapeHtml(workshop.id) + '">Архивировать</button>' +
@@ -425,6 +593,11 @@
       return;
     }
 
+    if (action === 'team-results') {
+      await openTrainerTeamResults(button.dataset.workshopId);
+      return;
+    }
+
     const workshopId = button.dataset.workshopId;
     const workshop = state.trainerWorkshops.find((item) => item.id === workshopId);
     if (!workshop) return;
@@ -440,9 +613,6 @@
     } else if (action === 'reset') {
       if (!window.confirm('Сбросить весь прогресс потока «' + workshop.name + '»? Будут удалены ответы всех команд, индивидуальные ответы, сохранённый итоговый снимок и привязки участников. Сами команды и код потока сохранятся. Действие нельзя отменить.')) return;
       rpcName = 'trainer_reset_workshop';
-    } else if (action === 'publish-monthly') {
-      if (!window.confirm('Опубликовать результаты месячной проверки для всех команд потока «' + workshop.name + '»? Все команды увидят результаты учебного кейса и смогут принять решение и пройти новый HADI-цикл.')) return;
-      rpcName = 'trainer_publish_monthly_results';
     } else {
       return;
     }
@@ -457,9 +627,7 @@
         ? 'Прогресс выбранного потока сброшен. Поток снова открыт.'
         : action === 'archive'
           ? 'Поток перемещён в архив. Результаты сохранены.'
-          : action === 'restore'
-            ? 'Поток восстановлен из архива.'
-            : 'Месячный этап опубликован для всех команд потока.';
+          : 'Поток восстановлен из архива.';
     } catch (error) {
       console.error('Trainer action error:', error);
       $('trainerStatus').textContent = error.message || 'Не удалось выполнить действие.';
@@ -1551,6 +1719,19 @@
   $('trainerWorkshopList').addEventListener('click', (event) => {
     const button = event.target.closest('[data-trainer-action]');
     if (button) handleTrainerAction(button);
+  });
+  $('trainerTeamResultsPanel').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-team-results-action], [data-team-result-action]');
+    if (!button) return;
+    if (button.dataset.teamResultsAction === 'back') {
+      $('trainerTeamResultsPanel').classList.add('hidden');
+      $('trainerWorkshopList').classList.remove('hidden');
+      state.trainerSelectedWorkshop = null;
+      state.trainerTeamFollowups = [];
+      return;
+    }
+    if (button.dataset.teamResultAction === 'save') saveTrainerTeamResult(button, false);
+    if (button.dataset.teamResultAction === 'publish') saveTrainerTeamResult(button, true);
   });
   $('prevStepButton').addEventListener('click', () => {
     if (state.currentStep > 1) {
