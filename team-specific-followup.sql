@@ -16,6 +16,7 @@ create table if not exists public.team_followup_results (
 );
 
 alter table public.team_followup_results enable row level security;
+alter table public.team_followup_results replica identity full;
 
 revoke all on public.team_followup_results from anon, authenticated;
 grant select on public.team_followup_results to authenticated;
