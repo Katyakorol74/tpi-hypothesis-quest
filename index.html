@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101d2b">
+  <meta name="description" content="Интерактивный командный практикум Академии ТПИ по управлению гипотезами">
   <title>Управление гипотезами — Академия ТПИ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -49,50 +53,53 @@
         </div>
       </section>
 
-      <section id="workspaceScreen" class="screen hidden">
+      <section id="workspaceScreen" class="screen workspace-screen hidden">
         <div class="workspace-heading">
           <div>
-            <div class="eyebrow">Управление гипотезами · Рабочая комната</div>
+            <div class="eyebrow">Управление гипотезами · Командная рабочая комната</div>
             <h1 id="workspaceTitle">Команда 1</h1>
             <p class="muted" id="workspaceSubtitle">Общие документы команды</p>
           </div>
           <div class="workspace-actions">
-            <span class="save-indicator" id="saveIndicator"><i></i><span>Все изменения сохранены</span></span>
+            <span class="save-indicator saved" id="saveIndicator"><i></i><span>Все изменения сохранены</span></span>
             <button id="switchTeamButton" class="button secondary">Сменить команду</button>
           </div>
         </div>
 
         <div id="lockedBanner" class="locked-banner hidden"><strong>Результаты зафиксированы тренером.</strong> Доступен только просмотр.</div>
 
-        <div class="intro-strip">
-          <span class="intro-icon">01</span>
-          <div><strong>Работайте вместе</strong><p>Заполняйте поля сообща. Изменения сохраняются автоматически и появляются у других участников этой команды.</p></div>
+        <div class="quest-intro">
+          <div class="quest-intro-mark">Q</div>
+          <div>
+            <div class="eyebrow">Сквозной кейс · 7 этапов</div>
+            <h2>Управленческое расследование</h2>
+            <p>Пройдите путь от первой реакции на служебную записку до проекта безопасного эксперимента. Все ответы сохраняются в общем пространстве команды.</p>
+          </div>
         </div>
 
-        <nav class="section-tabs" aria-label="Разделы рабочих документов">
-          <button class="tab active" data-target="diagnosisSection">01 · Диагностика</button>
-          <button class="tab" data-target="experimentSection">02 · Эксперимент</button>
-        </nav>
+        <div class="progress-track"><div id="progressFill" class="progress-fill" style="width:14.28%"></div></div>
+        <nav id="stepNav" class="step-nav" aria-label="Этапы квеста"></nav>
 
-        <section id="diagnosisSection" class="work-section">
-          <div class="section-heading"><div><div class="eyebrow">Выход № 1</div><h2>Заключение комиссии</h2><p>Разберитесь в ситуации до того, как предлагать решение.</p></div><span class="section-number">01</span></div>
-          <div class="fact-card">
-            <div class="fact-label">Служебная записка</div>
-            <p>Последние три месяца подразделение регулярно нарушает сроки выполнения заказов. Задерживаются отгрузки, растёт количество претензий клиентов, сотрудники работают в авральном режиме.</p>
-            <div class="metrics-row"><div><b>25%</b><small>месяц 1</small></div><div><b>30%</b><small>месяц 2</small></div><div><b>35%</b><small>месяц 3</small></div><div><b>18 / 60</b><small>всего просрочено</small></div></div>
-            <div class="fact-footnote">Дополнительно: 8 из 20 статусов обновлены после появления риска задержки; за месяц поступило 12 срочных поручений; сотрудники ведут несколько заказов одновременно; приоритеты часто меняются.</div>
+        <section class="step-workspace">
+          <div class="step-heading">
+            <div>
+              <div id="stepPosition" class="eyebrow">Этап 1 из 7</div>
+              <h2 id="stepTitle">Служебная записка</h2>
+              <p id="stepDescription" class="muted">Сначала определите, что именно является проблемой.</p>
+            </div>
+            <div class="step-heading-mark">01—07</div>
           </div>
-          <div id="diagnosisFields" class="field-grid"></div>
-        </section>
-
-        <section id="experimentSection" class="work-section hidden">
-          <div class="section-heading"><div><div class="eyebrow">Выход № 2</div><h2>Паспорт эксперимента</h2><p>Сформулируйте проверяемую гипотезу и безопасный способ её проверки.</p></div><span class="section-number">02</span></div>
-          <div class="field-grid" id="experimentFields"></div>
+          <div id="stepContent" class="step-content"></div>
+          <div class="step-controls">
+            <button id="prevStepButton" class="button secondary" disabled>← Назад</button>
+            <span class="step-save-note"><i></i> Автосохранение включено</span>
+            <button id="nextStepButton" class="button primary">Продолжить →</button>
+          </div>
         </section>
 
         <footer class="workspace-footer">
           <span>Академия ТПИ · Управление гипотезами</span>
-          <span id="lastSavedAt">Изменения сохраняются автоматически</span>
+          <span id="lastSavedAt">Облачное автосохранение включено</span>
         </footer>
       </section>
     </main>
