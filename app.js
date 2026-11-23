@@ -8,9 +8,12 @@
     client: null,
     user: null,
     workshop: null,
+    workshopCode: null,
     teams: [],
     team: null,
     locked: false,
+    isTrainer: false,
+    trainerWorkshops: [],
     channel: null,
     saveTimers: new Map(),
     saveQueue: new Map(),
@@ -91,7 +94,7 @@
   ];
 
   function showScreen(id) {
-    ['loadingScreen', 'errorScreen', 'teamSelectionScreen', 'workspaceScreen'].forEach((screenId) => {
+    ['loadingScreen', 'errorScreen', 'teamSelectionScreen', 'workspaceScreen', 'trainerScreen'].forEach((screenId) => {
       $(screenId).classList.toggle('hidden', screenId !== id);
     });
   }
@@ -225,7 +228,7 @@
   }
 
   async function loadWorkshop() {
-    const { data, error } = await state.client.rpc('get_workshop_teams', { p_join_code: CONFIG.WORKSHOP_CODE });
+    const { data, error } = await state.client.rpc('get_workshop_teams', { p_join_code: state.workshopCode });
     if (error) throw error;
     if (!data || !data.workshop_id || !Array.isArray(data.teams)) {
       throw new Error('Не удалось получить команды. Проверьте код занятия.');
@@ -252,7 +255,7 @@
     try {
       setConnection('Подключение к команде…');
       const { data, error } = await state.client.rpc('join_workshop', {
-        p_join_code: CONFIG.WORKSHOP_CODE,
+        p_join_code: state.workshopCode,
         p_team_id: team.id
       });
       if (error) throw error;
@@ -293,6 +296,155 @@
     setSaveState(state.locked ? 'Результаты зафиксированы' : 'Все изменения сохранены', 'saved');
     $('lastSavedAt').textContent = state.locked ? 'Режим только чтение' : 'Облачное автосохранение включено';
     startRealtime();
+  }
+
+
+  function showTrainerPanel() {
+    stopRealtime();
+    showScreen('trainerScreen');
+    $('trainerAuthPanel').classList.remove('hidden');
+    $('trainerWorkshopsPanel').classList.add('hidden');
+    $('trainerStatus').textContent = 'Войдите с учётной записью тренера.';
+    $('trainerPassword').value = '';
+  }
+
+  async function loginTrainer() {
+    const email = $('trainerEmail').value.trim();
+    const password = $('trainerPassword').value;
+    if (!email || !password) {
+      $('trainerStatus').textContent = 'Введите email и пароль.';
+      return;
+    }
+    const button = $('trainerLoginButton');
+    button.disabled = true;
+    $('trainerStatus').textContent = 'Проверяем доступ…';
+    try {
+      await state.client.auth.signOut();
+      const { data, error } = await state.client.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      state.user = data.user;
+      const { data: workshops, error: listError } = await state.client.rpc('trainer_list_workshops');
+      if (listError) throw listError;
+      state.isTrainer = true;
+      state.trainerWorkshops = Array.isArray(workshops) ? workshops : [];
+      $('trainerAuthPanel').classList.add('hidden');
+      $('trainerWorkshopsPanel').classList.remove('hidden');
+      renderTrainerWorkshops();
+      $('trainerStatus').textContent = '';
+    } catch (error) {
+      console.error('Trainer login error:', error);
+      $('trainerStatus').textContent = error.message || 'Не удалось войти. Проверьте доступ тренера.';
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function renderTrainerWorkshops() {
+    const target = $('trainerWorkshopList');
+    const items = state.trainerWorkshops || [];
+    if (!items.length) {
+      target.innerHTML = '<div class="trainer-empty">Потоков пока нет. Создайте новый поток в Supabase и обновите список.</div>';
+      return;
+    }
+
+    target.innerHTML = items.map((workshop) => {
+      const archived = Boolean(workshop.is_archived);
+      const locked = workshop.status === 'locked';
+      const label = archived ? 'В архиве' : (locked ? 'Результаты зафиксированы' : 'Активный поток');
+      const date = workshop.created_at ? new Date(workshop.created_at).toLocaleString('ru-RU') : '';
+      return '<article class="trainer-workshop-card">' +
+        '<div class="trainer-workshop-main">' +
+          '<div class="trainer-workshop-title"><h3>' + escapeHtml(workshop.name || 'Без названия') + '</h3><span class="trainer-status-pill ' + (archived ? 'archived' : locked ? 'locked' : 'active') + '">' + label + '</span></div>' +
+          '<div class="trainer-workshop-meta"><span>Код: <strong>' + escapeHtml(workshop.join_code || '') + '</strong></span><span>Команд: <strong>' + Number(workshop.team_count || 0) + '</strong></span>' + (date ? '<span>Создан: ' + escapeHtml(date) + '</span>' : '') + '</div>' +
+        '</div>' +
+        '<div class="trainer-workshop-actions">' +
+          '<button type="button" class="button secondary" data-trainer-action="copy" data-workshop-code="' + escapeHtml(workshop.join_code || '') + '">Ссылка потока</button>' +
+          (archived
+            ? '<button type="button" class="button secondary" data-trainer-action="restore" data-workshop-id="' + escapeHtml(workshop.id) + '">Вернуть из архива</button>'
+            : '<button type="button" class="button secondary" data-trainer-action="archive" data-workshop-id="' + escapeHtml(workshop.id) + '">Архивировать</button>' +
+              '<button type="button" class="button danger" data-trainer-action="reset" data-workshop-id="' + escapeHtml(workshop.id) + '">Сбросить прогресс</button>') +
+        '</div>' +
+      '</article>';
+    }).join('');
+  }
+
+  async function refreshTrainerWorkshops() {
+    const { data, error } = await state.client.rpc('trainer_list_workshops');
+    if (error) throw error;
+    state.trainerWorkshops = Array.isArray(data) ? data : [];
+    renderTrainerWorkshops();
+  }
+
+  function getWorkshopLaunchUrl(code) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('code', code);
+    return url.toString();
+  }
+
+  async function handleTrainerAction(button) {
+    const action = button.dataset.trainerAction;
+    if (action === 'copy') {
+      const url = getWorkshopLaunchUrl(button.dataset.workshopCode || '');
+      try {
+        await navigator.clipboard.writeText(url);
+        $('trainerStatus').textContent = 'Ссылка скопирована: ' + url;
+      } catch (_) {
+        window.prompt('Скопируйте ссылку потока:', url);
+      }
+      return;
+    }
+
+    const workshopId = button.dataset.workshopId;
+    const workshop = state.trainerWorkshops.find((item) => item.id === workshopId);
+    if (!workshop) return;
+
+    let rpcName = '';
+    let args = { p_workshop_id: workshopId };
+    if (action === 'archive') {
+      if (!window.confirm('Архивировать поток «' + workshop.name + '»? Все ответы сохранятся. Участники больше не смогут продолжать работу.')) return;
+      rpcName = 'trainer_archive_workshop';
+    } else if (action === 'restore') {
+      if (!window.confirm('Вернуть поток «' + workshop.name + '» из архива?')) return;
+      rpcName = 'trainer_restore_workshop';
+    } else if (action === 'reset') {
+      if (!window.confirm('Сбросить весь прогресс потока «' + workshop.name + '»? Будут удалены ответы всех команд, индивидуальные ответы, сохранённый итоговый снимок и привязки участников. Сами команды и код потока сохранятся. Действие нельзя отменить.')) return;
+      rpcName = 'trainer_reset_workshop';
+    } else {
+      return;
+    }
+
+    button.disabled = true;
+    $('trainerStatus').textContent = 'Выполняем действие…';
+    try {
+      const { error } = await state.client.rpc(rpcName, args);
+      if (error) throw error;
+      await refreshTrainerWorkshops();
+      $('trainerStatus').textContent = action === 'reset'
+        ? 'Прогресс выбранного потока сброшен. Поток снова открыт.'
+        : action === 'archive'
+          ? 'Поток перемещён в архив. Результаты сохранены.'
+          : 'Поток восстановлен из архива.';
+    } catch (error) {
+      console.error('Trainer action error:', error);
+      $('trainerStatus').textContent = error.message || 'Не удалось выполнить действие.';
+      button.disabled = false;
+    }
+  }
+
+  async function leaveTrainerPanel() {
+    try {
+      stopRealtime();
+      await state.client.auth.signOut();
+      state.isTrainer = false;
+      state.trainerWorkshops = [];
+      state.team = null;
+      showScreen('loadingScreen');
+      await init();
+    } catch (error) {
+      $('trainerStatus').textContent = error.message || 'Не удалось вернуться к участникам.';
+    }
   }
 
   function renderStepper() {
@@ -956,6 +1108,9 @@
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
       });
       await ensureAnonymousSession();
+      const requestedCode = new URLSearchParams(window.location.search).get('code');
+      state.workshopCode = (requestedCode || CONFIG.WORKSHOP_CODE || '').trim();
+      if (!state.workshopCode) throw new Error('Не указан код потока. Откройте ссылку, которую выдал тренер.');
       await loadWorkshop();
 
       const { data: membership, error: membershipError } = await state.client
@@ -987,6 +1142,21 @@
   }
 
   $('switchTeamButton').addEventListener('click', switchTeam);
+  $('trainerAccessButton').addEventListener('click', showTrainerPanel);
+  $('trainerAccessButton2').addEventListener('click', async () => {
+    await flushQueue();
+    showTrainerPanel();
+  });
+  $('trainerBackButton').addEventListener('click', leaveTrainerPanel);
+  $('trainerLoginButton').addEventListener('click', loginTrainer);
+  $('trainerRefreshButton').addEventListener('click', async () => {
+    try { await refreshTrainerWorkshops(); $('trainerStatus').textContent = 'Список потоков обновлён.'; }
+    catch (error) { $('trainerStatus').textContent = error.message || 'Не удалось обновить список.'; }
+  });
+  $('trainerWorkshopList').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-trainer-action]');
+    if (button) handleTrainerAction(button);
+  });
   $('prevStepButton').addEventListener('click', () => {
     if (state.currentStep > 1) {
       state.currentStep -= 1;
