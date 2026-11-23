@@ -148,6 +148,7 @@
     if (fieldKey.startsWith('manager_')) return 'manager_decisions';
     if (fieldKey.startsWith('classify_') || fieldKey === 'facts_checked') return 'facts_sorting';
     if (fieldKey.startsWith('causes_')) return 'ishikawa';
+    if (fieldKey.startsWith('cause_') || fieldKey.startsWith('causes_')) return 'ishikawa';
     if (fieldKey.startsWith('ice_')) return 'ice';
     if (fieldKey.startsWith('hypothesis_')) return 'hypothesis';
     if (fieldKey === 'method_selection') return 'mvt';
@@ -597,37 +598,52 @@
   }
 
     function renderIceStep() {
-    let html = '<div class="ice-intro"><div><div class="eyebrow">Приоритизация</div><h3>Что проверять первым?</h3><p>Оцените каждое направление по шкале от 1 до 5. Произведение помогает определить очередность проверки, но не доказывает, что причина истинная.</p></div><div class="ice-formula">ICE = I × C × E</div></div>';
-    html += '<div class="ice-table"><div class="ice-table-head"><span>Возможная причина</span><span>Impact</span><span>Confidence</span><span>Ease</span><span>ICE</span></div>';
-    iceVersions.forEach((version) => {
-      const values = ['I', 'C', 'E'].map((part) => numberValue('ice_' + version.key + '_' + part, ''));
-      const score = values.every((value) => value !== '') ? values.reduce((a, b) => a * b, 1) : '—';
-      html += '<div class="ice-row"><div class="ice-reason"><strong>' + escapeHtml(version.title) + '</strong></div>';
-      ['I', 'C', 'E'].forEach((part, index) => {
-        const current = values[index];
-        html += '<select data-field-key="ice_' + version.key + '_' + part + '" aria-label="' + part + ' для ' + escapeHtml(version.title) + '"><option value="">—</option>';
-        for (let n = 1; n <= 5; n++) html += '<option value="' + n + '" ' + (Number(current) === n ? 'selected' : '') + '>' + n + '</option>';
-        html += '</select>';
+    const candidates = collectCauseItems().filter((item) => item.status !== 'fact');
+    const ratings = rawValue('ice_ratings') && typeof rawValue('ice_ratings') === 'object'
+      ? rawValue('ice_ratings') : {};
+    const primaryId = textValue('ice_primary_cause_id');
+
+    let html = '<div class="ice-intro"><div><div class="eyebrow">Приоритизация собственных версий</div><h3>Какие причины из вашей Исикавы проверять первыми?</h3><p>В таблицу автоматически попали предположения и неизвестные факторы, которые команда добавила на предыдущем этапе. Оцените собственные версии по I, C и E.</p></div><div class="ice-formula">ICE = I × C × E</div></div>';
+
+    if (!candidates.length) {
+      html += '<div class="dynamic-empty"><strong>Пока нет версий для приоритизации.</strong><p>Вернитесь на этап «Диаграмма Исикавы» и добавьте хотя бы одну причину со статусом «Предположение» или «Неизвестно». Здесь появятся именно ваши варианты.</p><button type="button" class="button secondary" id="goFishboneButton">Вернуться к Исикаве</button></div>';
+      return html;
+    }
+
+    html += '<div class="ice-dynamic-list">';
+    candidates.forEach((item, index) => {
+      const value = ratings[item.id] || {};
+      const values = ['I', 'C', 'E'].map((part) => value[part] || '');
+      const score = values.every((number) => number !== '' && Number(number) >= 1)
+        ? values.reduce((total, number) => total * Number(number), 1) : '—';
+      const category = fishboneCategories.find((cat) => cat.key === item.category);
+      html += '<article class="ice-candidate ' + (primaryId === item.id ? 'primary-candidate' : '') + '"><div class="ice-candidate-top"><div><small>Вариант ' + (index + 1) + ' · ' + escapeHtml(category ? category.title : 'Исикава') + '</small><strong>' + escapeHtml(item.text) + '</strong><span class="tag ' + (item.status === 'unknown' ? 'unknown' : 'hypothesis') + '">' + (item.status === 'unknown' ? 'Неизвестно' : 'Предположение') + '</span></div><label class="ice-primary-choice"><input type="radio" name="icePrimary" data-ice-primary value="' + escapeHtml(item.id) + '" ' + (primaryId === item.id ? 'checked' : '') + ' ' + (state.locked ? 'disabled' : '') + '><span>Выбрать для проверки</span></label></div>';
+      html += '<div class="ice-ratings">';
+      [['I','Impact · влияние'],['C','Confidence · уверенность'],['E','Ease · простота']].forEach(([part,label]) => {
+        html += '<label><small>' + label + '</small><select data-ice-rank="' + escapeHtml(item.id) + '" data-rank-part="' + part + '" ' + (state.locked ? 'disabled' : '') + '><option value="">1–5</option>';
+        for (let n = 1; n <= 5; n++) html += '<option value="' + n + '" ' + (Number(value[part]) === n ? 'selected' : '') + '>' + n + '</option>';
+        html += '</select></label>';
       });
-      html += '<div class="ice-score" data-ice-score="' + version.key + '">' + score + '</div></div>';
+      html += '<div class="ice-result"><small>ICE</small><strong data-ice-score="' + escapeHtml(item.id) + '">' + score + '</strong></div></div></article>';
     });
-    html += '</div><div class="ice-explainer"><div><b>I · Impact</b><span>Насколько сильно направление может повлиять на проблему?</span></div><div><b>C · Confidence</b><span>Насколько убедительны основания для этой версии?</span></div><div><b>E · Ease</b><span>Насколько легко, быстро и безопасно её проверить?</span></div></div>';
-    html += '<div class="exercise-panel compact"><label for="ice_reason">Почему команда выбирает это направление первым?</label><textarea id="ice_reason" data-field-key="ice_reason" placeholder="Укажите балл и бизнес-обоснование выбора…">' + escapeHtml(textValue('ice_reason')) + '</textarea></div>';
+    html += '</div>';
+
+    const selectedCause = candidates.find((item) => item.id === primaryId);
+    html += '<div class="ice-selected-summary"><div class="eyebrow">Направление, которое команда выбрала для дальнейшей работы</div><strong>' + escapeHtml(selectedCause ? selectedCause.text : 'Пока не выбрано') + '</strong><p>Выбор означает только приоритет исследования. Он не доказывает, что именно эта причина вызвала просрочки.</p></div>';
+    html += renderTextCard('ice_reason', 'Почему вы выбрали это направление?', 'Обоснуйте оценки ICE и объясните, почему начинаете именно с этой версии.', textValue('ice_reason'), true);
+    html += '<div class="ice-coach-example"><strong>Пример оценок из ключа тренера — только ориентир:</strong><span>Позднее выявление рисков: 4 × 3 × 5 = 60; изменение приоритетов: 5 × 2 × 4 = 40; параллельная работа: 5 × 2 × 3 = 30. Ваши оценки могут отличаться, если команда их обосновывает.</span></div>';
     return html;
   }
 
-  function renderTextCard(key, title, hint, value, full) {
-    return '<article class="input-card ' + (full ? 'full' : '') + '"><label for="field_' + key + '">' + escapeHtml(title) + '</label><small>' + escapeHtml(hint) + '</small><textarea id="field_' + key + '" data-field-key="' + key + '" placeholder="Введите ответ команды…">' + escapeHtml(value) + '</textarea></article>';
-  }
-
-  function renderHypothesisStep() {
-    let html = '<div class="hypothesis-callout"><div class="eyebrow">Конструктор гипотезы</div><h3>Если — то — потому что</h3><p>Гипотеза о причине отвечает на вопрос «почему происходит проблема?». Гипотеза о решении — «какое действие может изменить результат?». Сейчас проектируем проверку решения.</p></div>';
+    function renderHypothesisStep() {
+    const chosenCause = collectCauseItems().find((item) => item.id === textValue('ice_primary_cause_id'));
+    let html = '<div class="hypothesis-callout"><div class="eyebrow">Конструктор гипотезы</div><h3>От выбранной причины — к проверяемому решению</h3><p>Вы не начинаете заново: используйте направление, которое ваша команда выбрала на Исикаве и ICE. Теперь сформулируйте действие, которое позволит проверить предположение.</p><div class="chosen-cause-link"><small>Выбранное командой направление</small><strong>' + escapeHtml(chosenCause ? chosenCause.text : 'Направление пока не выбрано') + '</strong></div></div>';
     html += '<div class="hypothesis-grid">';
-    html += renderTextCard('hypothesis_if', 'ЕСЛИ · Что конкретно изменяем?', 'Действие, процесс и ответственный.', textValue('hypothesis_if'), true);
+    html += renderTextCard('hypothesis_if', 'ЕСЛИ · Что конкретно изменяем?', 'Действие, процесс и ответственный. Свяжите действие с выбранным направлением.', textValue('hypothesis_if'), true);
     html += renderTextCard('hypothesis_then', 'ТО · Какой результат ожидаем?', 'Метрика, baseline, целевое значение и срок.', textValue('hypothesis_then'), true);
-    html += renderTextCard('hypothesis_because', 'ПОТОМУ ЧТО · Почему это сработает?', 'Механизм, связывающий действие и результат.', textValue('hypothesis_because'), true);
+    html += renderTextCard('hypothesis_because', 'ПОТОМУ ЧТО · Почему это сработает?', 'Механизм, связывающий действие и результат с выбранной версией.', textValue('hypothesis_because'), true);
     html += renderTextCard('hypothesis_metric', 'Чем измерим?', 'Источник, выборка и период данных.', textValue('hypothesis_metric'), false);
-    html += renderTextCard('hypothesis_alternatives', 'Какие есть альтернативные объяснения?', 'Что ещё может повлиять на показатель?', textValue('hypothesis_alternatives'), false);
+    html += renderTextCard('hypothesis_alternatives', 'Какие есть альтернативные объяснения?', 'Что ещё может повлиять на показатель, кроме выбранного действия?', textValue('hypothesis_alternatives'), false);
     html += '</div>';
     const ifText = textValue('hypothesis_if') || '[действие]';
     const thenText = textValue('hypothesis_then') || '[ожидаемый результат]';
@@ -637,7 +653,7 @@
     return html;
   }
 
-  function renderExperimentStep() {
+    function renderExperimentStep() {
     let html = '<div class="mvt-intro"><div class="eyebrow">Safe-to-fail · MVT</div><h3>Минимальный тест вместо полного внедрения</h3><p>Проверьте ключевое предположение минимальными затратами. Не нужно разрабатывать новую систему или перестраивать весь процесс.</p></div>';
     html += '<div class="experiment-layout"><div class="exercise-panel"><h3>Выберите методы проверки</h3><p class="muted">Бюджет команды — 80 условных единиц. Можно выбрать один метод или комбинацию.</p><div class="method-list">';
     const selectedValue = rawValue('method_selection');
@@ -694,8 +710,37 @@
     content.querySelectorAll('[data-add-cause]').forEach((button) => {
       button.addEventListener('click', () => addCause(button.dataset.addCause));
     });
+    content.querySelectorAll('[data-transfer-prior]').forEach((button) => {
+      button.addEventListener('click', () => transferPriorVersion(button.dataset.transferPrior));
+    });
     content.querySelectorAll('[data-remove-cause]').forEach((button) => {
-      button.addEventListener('click', () => removeCause(button.dataset.removeCause, Number(button.dataset.causeIndex)));
+      button.addEventListener('click', () => removeCauseItem(button.dataset.removeCause));
+    });
+    content.querySelectorAll('[data-cause-text]').forEach((el) => {
+      el.addEventListener('input', () => updateCause(el.dataset.causeText, { text: el.value }));
+    });
+    content.querySelectorAll('[data-cause-status-edit]').forEach((el) => {
+      el.addEventListener('change', () => updateCause(el.dataset.causeStatusEdit, { status: el.value }));
+    });
+    content.querySelectorAll('[data-ice-rank]').forEach((el) => {
+      el.addEventListener('change', () => updateIceRank(el.dataset.iceRank, el.dataset.rankPart, el.value));
+    });
+    content.querySelectorAll('[data-ice-primary]').forEach((el) => {
+      el.addEventListener('change', () => {
+        scheduleSave('ice_primary_cause_id', el.value);
+        renderCurrentStep();
+      });
+    });
+    const fishboneButton = $('goFishboneButton');
+    if (fishboneButton) fishboneButton.addEventListener('click', () => { state.currentStep = 4; renderCurrentStep(); });
+
+    content.querySelectorAll('[data-field-key^="classify_"]').forEach((el) => {
+      el.addEventListener('change', () => {
+        if (textValue('facts_checked') === 'yes') {
+          scheduleSave('facts_checked', 'no');
+          window.setTimeout(() => renderCurrentStep(), 0);
+        }
+      });
     });
 
     content.querySelectorAll('[data-method]').forEach((el) => {
@@ -712,17 +757,25 @@
   }
 
   function updateIceScores() {
-    iceVersions.forEach((version) => {
-      const vals = ['I', 'C', 'E'].map((part) => {
-        const el = $('stepContent').querySelector('[data-field-key="ice_' + version.key + '_' + part + '"]');
-        return el ? Number(el.value || 0) : Number(textValue('ice_' + version.key + '_' + part) || 0);
-      });
-      const target = $('stepContent').querySelector('[data-ice-score="' + version.key + '"]');
-      if (target) target.textContent = vals.every((n) => n > 0) ? String(vals.reduce((a, b) => a * b, 1)) : '—';
+    const ratings = rawValue('ice_ratings') && typeof rawValue('ice_ratings') === 'object'
+      ? rawValue('ice_ratings') : {};
+    collectCauseItems().filter((item) => item.status !== 'fact').forEach((item) => {
+      const value = ratings[item.id] || {};
+      const vals = ['I', 'C', 'E'].map((part) => Number(value[part] || 0));
+      const target = $('stepContent').querySelector('[data-ice-score="' + CSS.escape(item.id) + '"]');
+      if (target) target.textContent = vals.every((number) => number >= 1) ? String(vals.reduce((a, b) => a * b, 1)) : '—';
     });
   }
 
-  function updateMethodSelection() {
+  function updateIceRank(id, part, value) {
+    const current = rawValue('ice_ratings') && typeof rawValue('ice_ratings') === 'object'
+      ? rawValue('ice_ratings') : {};
+    const next = { ...current, [id]: { ...(current[id] || {}), [part]: Number(value) } };
+    scheduleSave('ice_ratings', next);
+    updateIceScores();
+  }
+
+    function updateMethodSelection() {
     const selected = Array.from($('stepContent').querySelectorAll('[data-method]:checked')).map((el) => el.dataset.method);
     scheduleSave('method_selection', { methods: selected });
     updateBudgetTotal();
@@ -742,6 +795,14 @@
     if (state.currentStep === 1 && !textValue('problem_choice')) {
       window.alert('Сначала выберите, что является главной проблемой.');
       return;
+    }
+    if (state.currentStep === 5) {
+      const selectedId = textValue('ice_primary_cause_id');
+      const candidates = collectCauseItems().filter((item) => item.status !== 'fact');
+      if (!selectedId || !candidates.some((item) => item.id === selectedId)) {
+        window.alert('Выберите для проверки одну из собственных версий, добавленных на диаграмму Исикавы.');
+        return;
+      }
     }
     const flushed = await flushQueue();
     if (!flushed) {
