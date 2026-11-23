@@ -356,3 +356,12 @@ textarea:focus,input[type=text]:focus,select:focus{border-color:var(--teal);box-
   .mvt-chain{grid-template-columns:1fr}
   .fishbone-connectors{display:none}
 }
+
+.manager-assumptions-review{background:#f2f6f7;border:1px solid #dde7e9;border-radius:11px;padding:15px;margin:14px 0}
+.manager-assumptions-review h4{font-size:12px;color:var(--navy);margin:0 0 10px}
+.manager-assumptions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.manager-assumptions-grid>div{background:#fff;border:1px solid #e1e8ea;border-radius:8px;padding:10px;min-width:0}
+.manager-assumptions-grid>div.wide{grid-column:1/-1}
+.manager-assumptions-grid small{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.7px;color:#82909a;font-weight:800}
+.manager-assumptions-grid p{font-size:10px;margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:680px){.manager-assumptions-grid{grid-template-columns:1fr}.manager-assumptions-grid>div.wide{grid-column:auto}}
