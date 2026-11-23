@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101d2b">
+  <title>Управление гипотезами — Академия ТПИ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Академия ТПИ">
+        <span class="brand-mark">tpe</span>
+        <span class="brand-divider"></span>
+        <span class="brand-copy"><strong>АКАДЕМИЯ ТПИ</strong><small>КОМАНДНЫЙ ПРАКТИКУМ</small></span>
+      </a>
+      <div class="connection" id="connectionStatus"><span class="status-dot"></span><span>Подключение…</span></div>
+    </header>
+
+    <main>
+      <section id="loadingScreen" class="screen loading-screen">
+        <div class="spinner"></div>
+        <p>Подключаемся к рабочему пространству…</p>
+      </section>
+
+      <section id="errorScreen" class="screen hidden">
+        <div class="panel narrow">
+          <div class="eyebrow">Не удалось подключиться</div>
+          <h1>Что-то пошло не так</h1>
+          <p id="errorMessage" class="muted">Проверьте подключение и настройки проекта.</p>
+          <button id="retryButton" class="button primary">Повторить подключение</button>
+        </div>
+      </section>
+
+      <section id="teamSelectionScreen" class="screen hidden">
+        <div class="hero-copy">
+          <div class="eyebrow">Практикум · Управление гипотезами</div>
+          <h1>От идеи<br><span>до проверки</span></h1>
+          <p class="lead">Выберите команду, чтобы открыть общее рабочее пространство. Ответы команды сохраняются в облаке и доступны с разных устройств.</p>
+        </div>
+        <div class="panel team-panel">
+          <div class="panel-heading">
+            <div><div class="eyebrow">Подключение</div><h2>Выберите свою команду</h2></div>
+            <span class="live-pill"><i></i> Занятие активно</span>
+          </div>
+          <div id="teamGrid" class="team-grid"></div>
+          <p class="tiny-note">Ошиблись с выбором? Команду можно сменить в любой момент до фиксации результатов тренером.</p>
+        </div>
+      </section>
+
+      <section id="workspaceScreen" class="screen hidden">
+        <div class="workspace-heading">
+          <div>
+            <div class="eyebrow">Управление гипотезами · Рабочая комната</div>
+            <h1 id="workspaceTitle">Команда 1</h1>
+            <p class="muted" id="workspaceSubtitle">Общие документы команды</p>
+          </div>
+          <div class="workspace-actions">
+            <span class="save-indicator" id="saveIndicator"><i></i><span>Все изменения сохранены</span></span>
+            <button id="switchTeamButton" class="button secondary">Сменить команду</button>
+          </div>
+        </div>
+
+        <div id="lockedBanner" class="locked-banner hidden"><strong>Результаты зафиксированы тренером.</strong> Доступен только просмотр.</div>
+
+        <div class="intro-strip">
+          <span class="intro-icon">01</span>
+          <div><strong>Работайте вместе</strong><p>Заполняйте поля сообща. Изменения сохраняются автоматически и появляются у других участников этой команды.</p></div>
+        </div>
+
+        <nav class="section-tabs" aria-label="Разделы рабочих документов">
+          <button class="tab active" data-target="diagnosisSection">01 · Диагностика</button>
+          <button class="tab" data-target="experimentSection">02 · Эксперимент</button>
+        </nav>
+
+        <section id="diagnosisSection" class="work-section">
+          <div class="section-heading"><div><div class="eyebrow">Выход № 1</div><h2>Заключение комиссии</h2><p>Разберитесь в ситуации до того, как предлагать решение.</p></div><span class="section-number">01</span></div>
+          <div class="fact-card">
+            <div class="fact-label">Служебная записка</div>
+            <p>Последние три месяца подразделение регулярно нарушает сроки выполнения заказов. Задерживаются отгрузки, растёт количество претензий клиентов, сотрудники работают в авральном режиме.</p>
+            <div class="metrics-row"><div><b>25%</b><small>месяц 1</small></div><div><b>30%</b><small>месяц 2</small></div><div><b>35%</b><small>месяц 3</small></div><div><b>18 / 60</b><small>всего просрочено</small></div></div>
+            <div class="fact-footnote">Дополнительно: 8 из 20 статусов обновлены после появления риска задержки; за месяц поступило 12 срочных поручений; сотрудники ведут несколько заказов одновременно; приоритеты часто меняются.</div>
+          </div>
+          <div id="diagnosisFields" class="field-grid"></div>
+        </section>
+
+        <section id="experimentSection" class="work-section hidden">
+          <div class="section-heading"><div><div class="eyebrow">Выход № 2</div><h2>Паспорт эксперимента</h2><p>Сформулируйте проверяемую гипотезу и безопасный способ её проверки.</p></div><span class="section-number">02</span></div>
+          <div class="field-grid" id="experimentFields"></div>
+        </section>
+
+        <footer class="workspace-footer">
+          <span>Академия ТПИ · Управление гипотезами</span>
+          <span id="lastSavedAt">Изменения сохраняются автоматически</span>
+        </footer>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
