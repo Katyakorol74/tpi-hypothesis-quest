@@ -72,15 +72,14 @@
               <label>Пароль<input id="trainerPassword" type="password" autocomplete="current-password" placeholder="Пароль тренера"></label>
             </div>
             <button id="trainerLoginButton" class="button primary">Войти</button>
-            <p class="trainer-message trainer-login-hint">Войдите с учётной записью тренера.</p>
           </div>
+          <p id="trainerStatus" class="trainer-message" role="status">Войдите с учётной записью тренера.</p>
           <div id="trainerWorkshopsPanel" class="panel trainer-workshops-panel hidden">
             <div class="trainer-list-heading">
               <div><div class="eyebrow">Потоки практикума</div><h2>Занятия и группы</h2><p class="muted">Каждый поток имеет собственный код, ссылку и независимые ответы.</p></div>
               <button id="trainerRefreshButton" class="button secondary">Обновить список</button>
             </div>
             <div id="trainerWorkshopList" class="trainer-workshop-list"></div>
-            <p id="trainerStatus" class="trainer-message" role="status"></p>
           </div>
         </div>
       </section>
