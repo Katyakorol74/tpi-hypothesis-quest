@@ -475,7 +475,8 @@
       html += '</select></label>';
       html += '<label>Выборка и период проверки<input type="text" data-team-result-field="sample_period" value="' + escapeHtml(saved.sample_period || '') + '" placeholder="Например: 30 заказов за 4 недели"></label>';
       html += '<label class="full">Дополнительные показатели и наблюдения<textarea data-team-result-field="supporting_metrics" placeholder="Какие дополнительные метрики изменились?">' + escapeHtml(saved.supporting_metrics || '') + '</textarea></label>';
-      html += '<label class="full">Побочные эффекты и влияние на процесс<textarea data-team-result-field="side_effects" placeholder="Нагрузка, удобство, качество, безопасность и другие эффекты…">' + escapeHtml(saved.side_effects || '') + '</textarea></label>';
+      html += '<label class="full">Побочные эффекты и влияние на процесс<textarea data-team-result-field="side_effects" placeholder="Нагрузка, удобство, перераспределение времени и другие эффекты…">' + escapeHtml(saved.side_effects || '') + '</textarea></label>';
+      html += '<label class="full">Безопасность и качество<textarea data-team-result-field="safety_quality" placeholder="Изменились ли показатели безопасности или качества? Были ли инциденты и отклонения?">' + escapeHtml(saved.safety_quality || '') + '</textarea></label>';
       html += '<label class="full">Внешние факторы и альтернативные объяснения<textarea data-team-result-field="external_factors" placeholder="Что ещё могло повлиять на результат, кроме тестируемого действия?">' + escapeHtml(saved.external_factors || '') + '</textarea></label>';
       html += '<label class="full">Ограничения данных<textarea data-team-result-field="limitations" placeholder="Размер выборки, отсутствие контрольной группы, неполные данные…">' + escapeHtml(saved.limitations || '') + '</textarea></label>';
       html += '<label class="full">Комментарий тренера / вывод по результату<textarea data-team-result-field="trainer_conclusion" placeholder="Что команда должна учитывать при принятии решения?">' + escapeHtml(saved.trainer_conclusion || '') + '</textarea></label>';
@@ -717,6 +718,7 @@
     const details = [
       ['Дополнительные показатели и наблюдения', results.supporting_metrics],
       ['Побочные эффекты и влияние на процесс', results.side_effects],
+      ['Безопасность и качество', results.safety_quality],
       ['Внешние факторы и альтернативные объяснения', results.external_factors],
       ['Ограничения данных', results.limitations]
     ].filter((row) => row[1] && String(row[1]).trim());
@@ -861,6 +863,7 @@
       'Выборка и период: ' + reportValueFromObject(result, 'sample_period') + '.',
       'Дополнительные показатели: ' + reportValueFromObject(result, 'supporting_metrics'),
       'Побочные эффекты: ' + reportValueFromObject(result, 'side_effects'),
+      'Безопасность и качество: ' + reportValueFromObject(result, 'safety_quality'),
       'Внешние факторы: ' + reportValueFromObject(result, 'external_factors'),
       'Ограничения данных: ' + reportValueFromObject(result, 'limitations'),
       'Комментарий тренера: ' + reportValueFromObject(result, 'trainer_conclusion'),
@@ -895,7 +898,7 @@
       '',
       'По метрике «' + reportValueFromObject(result, 'metric_name') + (result.metric_unit ? ' (' + result.metric_unit + ')' : '') + '» получили: baseline — ' + reportValueFromObject(result, 'baseline_value') + ', цель — ' + reportValueFromObject(result, 'target_value') + ', фактический результат — ' + reportValueFromObject(result, 'actual_value') + '. Оценка: ' + monthlyOutcomeLabel(result.outcome) + '.',
       'Выборка и период: ' + reportValueFromObject(result, 'sample_period') + '. Дополнительные показатели: ' + reportValueFromObject(result, 'supporting_metrics') + '.',
-      'Побочные эффекты: ' + reportValueFromObject(result, 'side_effects') + '. Внешние факторы: ' + reportValueFromObject(result, 'external_factors') + '. Ограничения: ' + reportValueFromObject(result, 'limitations') + '.',
+      'Побочные эффекты: ' + reportValueFromObject(result, 'side_effects') + '. Безопасность и качество: ' + reportValueFromObject(result, 'safety_quality') + '. Внешние факторы: ' + reportValueFromObject(result, 'external_factors') + '. Ограничения: ' + reportValueFromObject(result, 'limitations') + '.',
       '',
       'Решение команды: ' + decisionLabel() + '.',
       'Обоснование: ' + reportValue('followup_decision_reason') + '.',
@@ -1676,7 +1679,12 @@
       }, async () => {
         try {
           await loadMonthlyResults();
-          if (state.followupPublished) state.maxStep = Math.max(state.maxStep, 8);
+          if (state.followupPublished) {
+            state.maxStep = Math.max(state.maxStep, 8);
+          } else {
+            state.maxStep = Math.min(state.maxStep, 7);
+            state.currentStep = Math.min(state.currentStep, 7);
+          }
           if (state.currentStep >= 7) renderCurrentStep();
           setConnection(state.followupPublished ? 'Результаты проверки опубликованы вашей команде' : 'Командная синхронизация активна');
         } catch (error) {
