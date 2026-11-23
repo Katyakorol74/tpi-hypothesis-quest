@@ -30,7 +30,7 @@
   const steps = [
     { title: 'Служебная записка', description: 'Сначала определите, что именно является проблемой. Не ищите причину раньше времени.' },
     { title: 'Решение руководителя', description: 'Посмотрите, как руководитель объяснил ситуацию и какие действия предложил. Найдите предположения за решениями.' },
-    { title: 'Факты и суждения', description: 'Разберите, где заканчиваются данные и начинаются отбор информации, интерпретации и выводы.' },
+    { title: 'Лестница умозаключений', description: 'Восстановите собственный ход мысли команды: от фактов и отбора информации до допущений, выводов, убеждений и действия.' },
     { title: 'Диаграмма Исикавы', description: 'Перенесите известные факты в систему причин и добавьте версии, которые предстоит проверить.' },
     { title: 'Приоритизация ICE', description: 'Выберите, какое направление разумнее исследовать первым.' },
     { title: 'Формулировка гипотезы', description: 'Превратите выбранное направление в проверяемую гипотезу о решении.' },
@@ -138,7 +138,6 @@
     if (fieldKey === 'flow_stage') return 'progress';
     if (fieldKey === 'problem_choice') return 'problem_selection';
     if (fieldKey.startsWith('manager_')) return 'manager_decisions';
-    if (fieldKey.startsWith('classify_') || fieldKey === 'facts_checked') return 'facts_sorting';
     if (fieldKey.startsWith('causes_')) return 'ishikawa';
     if (fieldKey.startsWith('cause_') || fieldKey.startsWith('causes_')) return 'ishikawa';
     if (fieldKey.startsWith('ice_')) return 'ice';
@@ -930,7 +929,7 @@
     $('progressFill').style.width = (state.currentStep / steps.length * 100) + '%';
     $('lockedBanner').classList.toggle('hidden', !state.locked);
     if (state.locked) {
-      content.querySelectorAll('input, textarea, select, button[data-edit], button[data-add-cause], button[data-remove-cause], #checkFactsButton').forEach((el) => { el.disabled = true; });
+      content.querySelectorAll('input, textarea, select, button[data-edit], button[data-add-cause], button[data-remove-cause]').forEach((el) => { el.disabled = true; });
       $('nextStepButton').disabled = true;
     }
   }
@@ -1400,21 +1399,11 @@
     const fishboneButton = $('goFishboneButton');
     if (fishboneButton) fishboneButton.addEventListener('click', () => { state.currentStep = 4; renderCurrentStep(); });
 
-    content.querySelectorAll('[data-field-key^="classify_"]').forEach((el) => {
-      el.addEventListener('change', () => {
-        if (textValue('facts_checked') === 'yes') {
-          scheduleSave('facts_checked', 'no');
-          window.setTimeout(() => renderCurrentStep(), 0);
-        }
-      });
-    });
-
     content.querySelectorAll('[data-method]').forEach((el) => {
       el.addEventListener('change', updateMethodSelection);
     });
     updateIceScores();
     updateBudgetTotal();
-    updateLadderCheckButton();
   }
 
   function updateHypothesisPreview() {
