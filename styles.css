@@ -574,3 +574,12 @@ textarea:focus,input[type=text]:focus,select:focus{border-color:var(--teal);box-
   .error-screen-actions{flex-direction:column}
   .error-screen-actions .button{width:100%}
 }
+
+
+/* Add a team to the currently selected workshop */
+.trainer-add-team-form{display:flex;align-items:flex-end;gap:12px;padding:15px 17px;margin:0 0 16px;border:1px solid #dce7e9;border-radius:12px;background:#f8fafb}
+.trainer-add-team-form label{display:flex;flex-direction:column;gap:6px;flex:1;max-width:520px;color:#526774;font-size:9px;font-weight:800}
+.trainer-add-team-form input{width:100%;border:1px solid #dce5e8;border-radius:8px;background:#fff;padding:11px 12px;color:var(--ink);font:inherit;font-size:11px}
+.trainer-add-team-form input:focus{outline:2px solid rgba(43,137,128,.16);border-color:#2b8980}
+.trainer-add-team-form .button{white-space:nowrap}
+@media(max-width:560px){.trainer-add-team-form{align-items:stretch;flex-direction:column}.trainer-add-team-form label{max-width:none}.trainer-add-team-form .button{width:100%}}
