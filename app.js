@@ -592,7 +592,7 @@
       html += '</article>';
     });
     html += '</div>';
-    html += '<div class="check-panel"><div><strong>' + (checked ? 'Результат проверки' : 'Проверьте классификацию') + '</strong><p>' + (checked ? 'Верных ответов: ' + correctCount + ' из 10. Красные карточки требуют пересмотра.' : 'Распределите утверждения и проверьте себя. Для разбора нужны все 10 ответов.') + '</p></div><button class="button ' + (checked ? 'secondary' : 'primary') + '" id="checkFactsButton" ' + (answered < 10 || state.locked ? 'disabled' : '') + '>' + (checked ? 'Обновить проверку' : 'Проверить ответы') + '</button></div>';
+    html += '<div class="check-panel"><div><strong>' + (checked ? 'Результат проверки' : 'Проверьте классификацию') + '</strong><p data-ladder-progress>' + (checked ? 'Верных ответов: ' + correctCount + ' из 10. Красные карточки требуют пересмотра.' : 'Выбрано: ' + answered + ' из 10. Для проверки заполните все строки.') + '</p></div><button class="button ' + (checked ? 'secondary' : 'primary') + '" id="checkFactsButton" ' + (answered < 10 || state.locked ? 'disabled' : '') + '>' + (checked ? 'Обновить проверку' : 'Проверить ответы') + '</button></div>';
     html += '<div class="insight-strip"><strong>Важно:</strong> у одного высказывания могут быть две смысловые части. Для пункта 10 ключ допускает интерпретацию или допущение — команда должна объяснить свою логику.</div>';
     html += '<section class="own-ladder-panel"><div class="exercise-kicker">Теперь вернитесь к собственной версии</div><h3>Спуститесь по лестнице назад</h3><p class="muted">Посмотрите на свою первую реакцию в начале кейса. Не переписывайте её задним числом — разберите, как вы пришли к этому решению.</p>';
     html += '<div class="own-work-summary"><small>Первая версия причины</small><p>' + escapeHtml(textValue('team_initial_cause') || 'На первом этапе команда не записала причину.') + '</p><small>Первое предложенное действие</small><p>' + escapeHtml(textValue('team_initial_action') || 'На первом этапе команда не записала действие.') + '</p></div>';
@@ -869,6 +869,21 @@
     return html;
   }
 
+  function updateLadderCheckButton() {
+    const content = $('stepContent');
+    const button = content.querySelector('#checkFactsButton');
+    if (!button) return;
+
+    const answered = ladderItems.filter((item) => textValue('classify_' + item.id) !== '').length;
+    button.disabled = answered < ladderItems.length || state.locked;
+
+    const progress = content.querySelector('[data-ladder-progress]');
+    if (progress && textValue('facts_checked') !== 'yes') {
+      progress.textContent = 'Выбрано: ' + answered + ' из ' + ladderItems.length +
+        (answered < ladderItems.length ? '. Заполните оставшиеся строки.' : '. Можно проверить ответы.');
+    }
+  }
+
   function bindCurrentStep() {
     const content = $('stepContent');
     content.querySelectorAll('[data-field-key]').forEach((el) => {
@@ -879,6 +894,7 @@
       el.addEventListener('change', () => {
         scheduleSave(el.dataset.fieldKey, el.value);
         updateIceScores();
+        if (el.dataset.fieldKey.startsWith('classify_')) updateLadderCheckButton();
       });
     });
 
@@ -893,9 +909,22 @@
 
     const checkButton = $('checkFactsButton');
     if (checkButton) {
-      checkButton.addEventListener('click', () => {
+      checkButton.addEventListener('click', async () => {
+        if (state.locked) return;
+        const answered = ladderItems.filter((item) => textValue('classify_' + item.id) !== '').length;
+        if (answered < ladderItems.length) {
+          updateLadderCheckButton();
+          return;
+        }
         scheduleSave('facts_checked', 'yes');
-        saveField('facts_checked').then(() => renderCurrentStep());
+        const saved = await flushQueue();
+        if (saved) {
+          renderCurrentStep();
+        } else {
+          scheduleSave('facts_checked', 'no');
+          window.alert('Не удалось сохранить все ответы. Проверьте соединение и повторите проверку.');
+          updateLadderCheckButton();
+        }
       });
     }
 
@@ -940,6 +969,7 @@
     });
     updateIceScores();
     updateBudgetTotal();
+    updateLadderCheckButton();
   }
 
   function updateHypothesisPreview() {
