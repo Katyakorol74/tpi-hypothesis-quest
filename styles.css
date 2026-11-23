@@ -527,3 +527,29 @@ textarea:focus,input[type=text]:focus,select:focus{border-color:var(--teal);box-
   .trainer-team-result-actions{flex-direction:column}
   .trainer-team-result-actions .button{width:100%}
 }
+
+
+/* Participant-owned inference ladder */
+.participant-ladder{margin:18px 0 8px}
+.participant-ladder>h3{font-size:20px;color:var(--navy);margin:5px 0 8px}
+.participant-ladder>p{font-size:10px;line-height:1.6;max-width:900px}
+.participant-ladder-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.participant-ladder-rung{min-width:0;background:#fff;border:1px solid #dfe8eb;border-radius:12px;padding:14px;position:relative}
+.participant-ladder-rung:nth-child(1){border-left:4px solid #7f9ca9}
+.participant-ladder-rung:nth-child(2){border-left:4px solid #8b9ac7}
+.participant-ladder-rung:nth-child(3){border-left:4px solid #b38cbf}
+.participant-ladder-rung:nth-child(4){border-left:4px solid #d19a66}
+.participant-ladder-rung:nth-child(5){border-left:4px solid #c17c70}
+.participant-ladder-rung:nth-child(6){border-left:4px solid #a6a16a}
+.participant-ladder-rung:nth-child(7){border-left:4px solid #4c9a90}
+.participant-rung-head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.participant-rung-head span{display:grid;place-items:center;flex:0 0 27px;height:27px;border-radius:50%;background:#edf2f4;color:var(--navy);font-size:9px;font-weight:800}
+.participant-rung-head strong{color:var(--navy);font-size:11px;line-height:1.4}
+.participant-ladder-rung>p{min-height:42px;color:#748590;font-size:9px;line-height:1.5;margin:0 0 10px}
+.participant-ladder-rung textarea{width:100%;min-height:82px;resize:vertical;border:1px solid #dce5e8;border-radius:8px;padding:10px 11px;background:#fbfcfc;color:var(--ink);font:inherit;font-size:10px;line-height:1.5}
+.participant-ladder-rung textarea:focus{outline:2px solid rgba(43,137,128,.18);border-color:#2b8980}
+.participant-ladder-reflection{margin:12px 0}
+@media(max-width:720px){
+  .participant-ladder-grid{grid-template-columns:1fr}
+  .participant-ladder-rung>p{min-height:0}
+}
