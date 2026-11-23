@@ -138,11 +138,16 @@
   }
 
   function parseAnswer(answer) {
-    if (answer && typeof answer === 'object' && !Array.isArray(answer) && typeof answer.text === 'string') return answer.text;
+    // Scalar answers are stored as {text: "..."}; structured objects
+    // (Ishikawa causes, ICE ratings, selections) must remain objects.
+    if (answer && typeof answer === 'object' && !Array.isArray(answer) &&
+        typeof answer.text === 'string' && Object.keys(answer).every((key) => key === 'text')) {
+      return answer.text;
+    }
     return answer;
   }
 
-  function taskKeyFor(fieldKey) {
+    function taskKeyFor(fieldKey) {
     if (fieldKey === 'flow_stage') return 'progress';
     if (fieldKey === 'problem_choice') return 'problem_selection';
     if (fieldKey.startsWith('manager_')) return 'manager_decisions';
@@ -370,18 +375,26 @@
 
     function renderManagerStep() {
     const choice = problemOptions.find((option) => option.value === textValue('problem_choice'));
-    let html = '<div class="reveal-banner"><span class="reveal-icon">!</span><div><div class="eyebrow">Новая информация по делу</div><h3>Как отреагировал руководитель</h3><p>В учебной ситуации руководитель выбрал быстрое объяснение: решил, что основная проблема — недостаточная дисциплина сотрудников.</p></div></div>';
-    html += '<div class="choice-review"><small>Ваш первоначальный выбор</small><strong>' + escapeHtml(choice ? choice.title : 'Команда ещё не зафиксировала выбор') + '</strong><span>Сравните своё определение проблемы с тем, как руководитель интерпретировал ситуацию.</span></div>';
-    html += '<div class="problem-reveal"><div class="eyebrow">Что можно утверждать по данным</div><strong>Главная наблюдаемая проблема — систематическое нарушение сроков выполнения заказов.</strong><p>За три месяца просрочено 18 из 60 заказов (30%); в последнем месяце — 7 из 20 (35%). «Недостаточная дисциплина» — возможное объяснение, а поздние статусы и изменения приоритетов — сигналы для исследования. Ни одно из них пока не доказывает причину.</p></div>';
-    html += '<div class="exercise-panel"><div class="exercise-kicker">Вопрос 02 · Что стоит за решением?</div><h3>Руководитель предложил четыре действия</h3><p class="muted">Не оценивайте, правильные ли это меры. Определите, какое объяснение проблемы и какое предположение заложены в каждом решении.</p><div class="manager-grid">';
+    const problemLabel = textValue('problem_choice') === 'custom'
+      ? textValue('problem_custom')
+      : (choice ? choice.title : 'Команда ещё не зафиксировала выбор');
+    let html = '<div class="reveal-banner"><span class="reveal-icon">!</span><div><div class="eyebrow">Новая информация по делу</div><h3>Теперь сравните свою первую реакцию с решением руководителя</h3><p>Сначала команда сформулировала собственную версию. Теперь открывается реакция руководителя из кейса — пока не оценивайте её правильность, ищите предположения за каждым действием.</p></div></div>';
+    html += '<div class="team-first-reaction"><div class="eyebrow">Что записала ваша команда на первом этапе</div><div class="first-reaction-grid">';
+    html += '<div><small>Выбранная проблема</small><strong>' + escapeHtml(problemLabel || 'Не выбрана') + '</strong></div>';
+    html += '<div><small>Первая версия причины</small><p>' + escapeHtml(textValue('team_initial_cause') || 'Не заполнено') + '</p></div>';
+    html += '<div><small>Первое предложенное действие</small><p>' + escapeHtml(textValue('team_initial_action') || 'Не заполнено') + '</p></div>';
+    html += '<div><small>Факты, на которые опиралась команда</small><p>' + escapeHtml(textValue('team_initial_evidence') || 'Не заполнено') + '</p></div>';
+    html += '</div></div>';
+    html += '<div class="manager-reveal-card"><div class="eyebrow">Решение руководителя из учебного кейса</div><h3>Руководитель решил, что основная проблема — недостаточная дисциплина сотрудников</h3><p>Он предложил четыре действия. Каждое из них опирается на своё предположение о том, как устроена проблема.</p></div>';
+    html += '<div class="exercise-panel"><div class="exercise-kicker">Вопрос 02 · Какие причины и допущения стоят за мерами?</div><h3>Разберите каждое решение руководителя</h3><p class="muted">Запишите, какое объяснение проблемы и какое предположение заложены в каждом действии. Не нужно выбирать одну заранее известную причину: ваши ответы станут материалом для следующего этапа.</p><div class="manager-grid">';
     managerActions.forEach((item, index) => {
       html += '<article class="manager-card"><div class="manager-card-number">0' + (index + 1) + '</div><div class="eyebrow">Управленческое решение</div><h4>' + escapeHtml(item.title) + '</h4><p>' + escapeHtml(item.action) + '</p><label for="' + item.key + '">' + escapeHtml(item.question) + '</label><textarea id="' + item.key + '" data-field-key="' + item.key + '" placeholder="' + escapeHtml(item.hint) + '">' + escapeHtml(textValue(item.key)) + '</textarea></article>';
     });
-    html += '</div><div class="manager-prompt"><strong>Общий вопрос команде</strong><p>Если руководитель прав, что должно быть верно в реальной системе? Какие причины нужно проверить, прежде чем вводить эти меры?</p><textarea data-field-key="manager_possible_causes" placeholder="Запишите 2–3 возможные причины, которые стоят за управленческими решениями…">' + escapeHtml(textValue('manager_possible_causes')) + '</textarea></div></div>';
+    html += '</div><div class="manager-prompt"><strong>Соберите собственные версии причин</strong><p>Какие причины вы видите теперь, когда рассмотрели все четыре действия? Сохраните несколько возможных объяснений, а не только одну.</p><textarea data-field-key="manager_possible_causes" placeholder="Запишите причины, которые команда хочет проверить дальше…">' + escapeHtml(textValue('manager_possible_causes')) + '</textarea></div></div>';
     return html;
   }
 
-  function renderFactsStep() {
+    function renderFactsStep() {
     const checked = textValue('facts_checked') === 'yes';
     const answered = ladderItems.filter((item) => textValue('classify_' + item.id)).length;
     const correctCount = ladderItems.filter((item) => {
@@ -603,7 +616,7 @@
       ? rawValue('ice_ratings') : {};
     const primaryId = textValue('ice_primary_cause_id');
 
-    let html = '<div class="ice-intro"><div><div class="eyebrow">Приоритизация собственных версий</div><h3>Какие причины из вашей Исикавы проверять первыми?</h3><p>В таблицу автоматически попали предположения и неизвестные факторы, которые команда добавила на предыдущем этапе. Оцените собственные версии по I, C и E.</p></div><div class="ice-formula">ICE = I × C × E</div></div>';
+    let html = '<div class="ice-intro"><div><div class="eyebrow">Приоритизация собственных версий</div><h3>Какие причины из вашей Исикавы проверять первыми?</h3><p>Сюда автоматически попадают предположения и неизвестные факторы, которые команда добавила на предыдущем этапе. Оцените каждую выбранную версию по I, C и E.</p></div><div class="ice-formula">ICE = I × C × E</div></div>';
 
     if (!candidates.length) {
       html += '<div class="dynamic-empty"><strong>Пока нет версий для приоритизации.</strong><p>Вернитесь на этап «Диаграмма Исикавы» и добавьте хотя бы одну причину со статусом «Предположение» или «Неизвестно». Здесь появятся именно ваши варианты.</p><button type="button" class="button secondary" id="goFishboneButton">Вернуться к Исикаве</button></div>';
@@ -617,7 +630,7 @@
       const score = values.every((number) => number !== '' && Number(number) >= 1)
         ? values.reduce((total, number) => total * Number(number), 1) : '—';
       const category = fishboneCategories.find((cat) => cat.key === item.category);
-      html += '<article class="ice-candidate ' + (primaryId === item.id ? 'primary-candidate' : '') + '"><div class="ice-candidate-top"><div><small>Вариант ' + (index + 1) + ' · ' + escapeHtml(category ? category.title : 'Исикава') + '</small><strong>' + escapeHtml(item.text) + '</strong><span class="tag ' + (item.status === 'unknown' ? 'unknown' : 'hypothesis') + '">' + (item.status === 'unknown' ? 'Неизвестно' : 'Предположение') + '</span></div><label class="ice-primary-choice"><input type="radio" name="icePrimary" data-ice-primary value="' + escapeHtml(item.id) + '" ' + (primaryId === item.id ? 'checked' : '') + ' ' + (state.locked ? 'disabled' : '') + '><span>Выбрать для проверки</span></label></div>';
+      html += '<article class="ice-candidate ' + (primaryId === item.id ? 'primary-candidate' : '') + '"><div class="ice-candidate-top"><div><small>Версия ' + (index + 1) + ' · ' + escapeHtml(category ? category.title : 'Исикава') + '</small><strong>' + escapeHtml(item.text) + '</strong><span class="tag ' + (item.status === 'unknown' ? 'unknown' : 'hypothesis') + '">' + (item.status === 'unknown' ? 'Неизвестно' : 'Предположение') + '</span></div><label class="ice-primary-choice"><input type="radio" name="icePrimary" data-ice-primary value="' + escapeHtml(item.id) + '" ' + (primaryId === item.id ? 'checked' : '') + ' ' + (state.locked ? 'disabled' : '') + '><span>Выбрать для проверки</span></label></div>';
       html += '<div class="ice-ratings">';
       [['I','Impact · влияние'],['C','Confidence · уверенность'],['E','Ease · простота']].forEach(([part,label]) => {
         html += '<label><small>' + label + '</small><select data-ice-rank="' + escapeHtml(item.id) + '" data-rank-part="' + part + '" ' + (state.locked ? 'disabled' : '') + '><option value="">1–5</option>';
@@ -696,6 +709,7 @@
         scheduleSave('problem_choice', el.value);
         const cards = content.querySelectorAll('.choice-card');
         cards.forEach((card) => card.classList.toggle('selected', card.querySelector('input').checked));
+        if (el.value === 'custom') renderCurrentStep();
       });
     });
 
@@ -792,9 +806,18 @@
   }
 
   async function advanceStep() {
-    if (state.currentStep === 1 && !textValue('problem_choice')) {
-      window.alert('Сначала выберите, что является главной проблемой.');
+    if (state.currentStep === 1 && (!textValue('problem_choice') ||
+        (textValue('problem_choice') === 'custom' && !textValue('problem_custom').trim()))) {
+      window.alert('Выберите или сформулируйте главную проблему.');
       return;
+    }
+    if (state.currentStep === 5) {
+      const selectedId = textValue('ice_primary_cause_id');
+      const candidates = collectCauseItems().filter((item) => item.status !== 'fact');
+      if (!selectedId || !candidates.some((item) => item.id === selectedId)) {
+        window.alert('Выберите для проверки одну из собственных версий, добавленных на диаграмму Исикавы.');
+        return;
+      }
     }
     if (state.currentStep === 5) {
       const selectedId = textValue('ice_primary_cause_id');
