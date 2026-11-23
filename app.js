@@ -583,7 +583,7 @@
       html += '<div class="prior-work-empty">На предыдущих этапах команда пока не записала собственные версии. Можно начать с фактов и вопросов, уже представленных в диаграмме.</div>';
     }
 
-    html += '<div class="fishbone-board"><svg class="fishbone-connectors" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishboneArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M38 350 L1000 350" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishboneArrow)"/><path d="M205 350 L145 115 M535 350 L535 115 M850 350 L925 115 M355 350 L290 585 M690 350 L690 585 M1035 350 L1090 585" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/></svg><div class="fishbone-grid>';
+    html += '<div class="fishbone-board"><svg class="fishbone-connectors" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishboneArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M38 350 L1000 350" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishboneArrow)"/><path d="M205 350 L145 115 M535 350 L535 115 M850 350 L925 115 M355 350 L290 585 M690 350 L690 585 M1035 350 L1090 585" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/></svg><div class="fishbone-grid">';
     fishboneCategories.forEach((cat) => {
       const items = allCauses.filter((item) => item.category === cat.key);
       html += '<article class="fishbone-branch"><div class="branch-head"><span>' + escapeHtml(cat.en) + '</span><h4>' + escapeHtml(cat.title) + '</h4></div>';
@@ -604,7 +604,7 @@
       });
       html += '</div><div class="cause-entry"><input type="text" data-cause-input="' + cat.key + '" placeholder="Добавить свою версию…" ' + (state.locked ? 'disabled' : '') + '><select data-cause-status="' + cat.key + '" ' + (state.locked ? 'disabled' : '') + '><option value="hypothesis">Предположение</option><option value="fact">Факт</option><option value="unknown">Неизвестно</option></select><button type="button" class="add-cause-button" data-add-cause="' + cat.key + '" ' + (state.locked ? 'disabled' : '') + '>+</button></div></article>';
     });
-    html += '</div><div class="fishbone-problem"><span>ПРОБЛЕМА, КОТОРУЮ ВЫ ВЫБРАЛИ</span><strong>' + escapeHtml(problemText) + '</strong><small>Исходные данные: 18 из 60 заказов просрочены</small></div></div>';
+    html += '</div><div class="fishbone-problem"><span>ПРОБЛЕМА ПО ИСХОДНЫМ ДАННЫМ</span><strong>18 из 60 заказов за три месяца выполнены с нарушением срока</strong><small>Первоначальный выбор команды: ' + escapeHtml(problemText) + '</small></div></div>';
 
     html += '<div class="fishbone-bottom-grid"><div class="fishbone-coach-note"><strong>Не путайте наличие факта с доказанной причиной</strong><p>Поздние статусы, срочные поручения и параллельная работа присутствуют в кейсе. Их влияние на просрочки необходимо проверить. Простои оборудования, задержки материалов и реалистичность сроков пока неизвестны.</p></div><div class="fishbone-own-summary"><strong>Сколько версий собрала команда</strong><b>' + allCauses.length + '</b><span>Во всех шести ветвях диаграммы</span></div></div>';
     return html;
