@@ -329,6 +329,10 @@
 
   function showTrainerPanel() {
     stopRealtime();
+    state.trainerSelectedWorkshop = null;
+    state.trainerTeamFollowups = [];
+    $('trainerTeamResultsPanel').classList.add('hidden');
+    $('trainerWorkshopList').classList.remove('hidden');
     showScreen('trainerScreen');
     $('trainerAuthPanel').classList.remove('hidden');
     $('trainerWorkshopsPanel').classList.add('hidden');
