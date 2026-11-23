@@ -228,6 +228,13 @@
   }
 
   async function loadWorkshop() {
+    const { data: archived, error: archiveError } = await state.client.rpc('is_workshop_archived', {
+      p_join_code: state.workshopCode
+    });
+    if (archiveError) throw archiveError;
+    if (archived === true) {
+      throw new Error('Этот поток находится в архиве. Попросите тренера открыть актуальный поток.');
+    }
     const { data, error } = await state.client.rpc('get_workshop_teams', { p_join_code: state.workshopCode });
     if (error) throw error;
     if (!data || !data.workshop_id || !Array.isArray(data.teams)) {
