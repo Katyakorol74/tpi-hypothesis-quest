@@ -46,10 +46,42 @@
         <div class="panel team-panel">
           <div class="panel-heading">
             <div><div class="eyebrow">Подключение</div><h2>Выберите свою команду</h2></div>
-            <span class="live-pill"><i></i> Занятие активно</span>
+            <div class="team-panel-tools"><span class="live-pill"><i></i> Занятие активно</span><button id="trainerAccessButton" class="button secondary">Кабинет тренера</button></div>
           </div>
           <div id="teamGrid" class="team-grid"></div>
           <p class="tiny-note">Ошиблись с выбором? Команду можно сменить в любой момент до фиксации результатов тренером.</p>
+        </div>
+      </section>
+
+      <section id="trainerScreen" class="screen hidden">
+        <div class="trainer-page">
+          <div class="trainer-page-heading">
+            <div>
+              <div class="eyebrow">Академия ТПИ · Управление занятиями</div>
+              <h1>Кабинет тренера</h1>
+              <p class="muted">Управляйте потоками независимо: архивируйте завершённые, сбрасывайте прогресс перед новым запуском.</p>
+            </div>
+            <button id="trainerBackButton" class="button secondary">← К участникам</button>
+          </div>
+          <div id="trainerAuthPanel" class="panel trainer-auth-panel">
+            <div class="eyebrow">Защищённый доступ</div>
+            <h2>Вход для тренера</h2>
+            <p class="muted">Используйте email и пароль учётной записи, добавленной в список тренеров Supabase.</p>
+            <div class="trainer-login-fields">
+              <label>Email<input id="trainerEmail" type="email" autocomplete="username" placeholder="name@example.com"></label>
+              <label>Пароль<input id="trainerPassword" type="password" autocomplete="current-password" placeholder="Пароль тренера"></label>
+            </div>
+            <button id="trainerLoginButton" class="button primary">Войти</button>
+            <p class="trainer-message trainer-login-hint">Войдите с учётной записью тренера.</p>
+          </div>
+          <div id="trainerWorkshopsPanel" class="panel trainer-workshops-panel hidden">
+            <div class="trainer-list-heading">
+              <div><div class="eyebrow">Потоки практикума</div><h2>Занятия и группы</h2><p class="muted">Каждый поток имеет собственный код, ссылку и независимые ответы.</p></div>
+              <button id="trainerRefreshButton" class="button secondary">Обновить список</button>
+            </div>
+            <div id="trainerWorkshopList" class="trainer-workshop-list"></div>
+            <p id="trainerStatus" class="trainer-message" role="status"></p>
+          </div>
         </div>
       </section>
 
@@ -62,6 +94,7 @@
           </div>
           <div class="workspace-actions">
             <span class="save-indicator saved" id="saveIndicator"><i></i><span>Все изменения сохранены</span></span>
+            <button id="trainerAccessButton2" class="button secondary">Кабинет тренера</button>
             <button id="switchTeamButton" class="button secondary">Сменить команду</button>
           </div>
         </div>
