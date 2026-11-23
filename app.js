@@ -414,7 +414,8 @@
     const activeTeams = state.trainerTeamFollowups.filter((team) => !team.is_archived);
     const publishedCount = activeTeams.filter((team) => team.is_published).length;
     const archivedCount = state.trainerTeamFollowups.length - activeTeams.length;
-    let html = '<div class="trainer-team-results-heading"><div><div class="eyebrow">Индивидуальные результаты · ' + escapeHtml(workshop.join_code || '') + '</div><h2>' + escapeHtml(workshop.name || 'Поток') + '</h2><p class="muted">Заполняйте фактические итоги по плану каждой команды. Публикация одной команды не открывает результаты остальным.</p></div><div class="trainer-team-results-heading-actions"><span class="trainer-followup-state">Опубликовано: ' + publishedCount + ' из ' + activeTeams.length + ' · в архиве: ' + archivedCount + '</span><button type="button" class="button secondary" data-team-results-action="back">← К списку потоков</button></div></div>';
+    let html = '<div class="trainer-team-results-heading"><div><div class="eyebrow">Управление командами и месячными результатами · ' + escapeHtml(workshop.join_code || '') + '</div><h2>' + escapeHtml(workshop.name || 'Поток') + '</h2><p class="muted">Добавляйте команды в этот поток, архивируйте завершённые и вносите результаты отдельно для каждой команды.</p></div><div class="trainer-team-results-heading-actions"><span class="trainer-followup-state">Активных: ' + activeTeams.length + ' · опубликовано: ' + publishedCount + ' · в архиве: ' + archivedCount + '</span><button type="button" class="button secondary" data-team-results-action="back">← К списку потоков</button></div></div>';
+    html += '<div class="trainer-add-team-form"><label for="trainerNewTeamName">Название новой команды<input id="trainerNewTeamName" type="text" maxlength="80" placeholder="Например, Команда 5"></label><button type="button" class="button primary" data-team-results-action="create-team">Добавить команду</button></div>';
 
     if (!state.trainerTeamFollowups.length) {
       html += '<div class="trainer-empty">В этом потоке пока нет команд.</div>';
@@ -480,6 +481,51 @@
     });
     html += '</div>';
     target.innerHTML = html;
+  }
+
+  async function createTrainerTeam(button) {
+    const input = $('trainerNewTeamName');
+    const name = input ? input.value.trim() : '';
+    if (name.length < 2) {
+      window.alert('Введите название команды (минимум 2 символа).');
+      if (input) input.focus();
+      return;
+    }
+    if (name.length > 80) {
+      window.alert('Название команды не должно превышать 80 символов.');
+      return;
+    }
+    if (!state.trainerSelectedWorkshop) return;
+
+    button.disabled = true;
+    button.textContent = 'Создаём…';
+    try {
+      const { data, error } = await state.client.rpc('trainer_create_team', {
+        p_workshop_id: state.trainerSelectedWorkshop.id,
+        p_team_name: name
+      });
+      if (error) throw error;
+
+      const { data: teams, error: reloadError } = await state.client.rpc('trainer_get_team_followups', {
+        p_workshop_id: state.trainerSelectedWorkshop.id
+      });
+      if (reloadError) throw reloadError;
+      state.trainerTeamFollowups = Array.isArray(teams) ? teams : [];
+      renderTrainerTeamResults();
+
+      const { data: workshops, error: listError } = await state.client.rpc('trainer_list_workshops');
+      if (listError) throw listError;
+      state.trainerWorkshops = Array.isArray(workshops) ? workshops : state.trainerWorkshops;
+      renderTrainerWorkshops();
+      $('trainerWorkshopList').classList.add('hidden');
+      $('trainerTeamResultsPanel').classList.remove('hidden');
+      $('trainerStatus').textContent = 'Создана команда «' + (data.team_name || name) + '». Она уже доступна участникам по ссылке этого потока.';
+    } catch (error) {
+      console.error('Create trainer team:', error);
+      $('trainerStatus').textContent = error.message || 'Не удалось создать команду.';
+      button.disabled = false;
+      button.textContent = 'Добавить команду';
+    }
   }
 
   async function handleTrainerTeamArchive(button, restore) {
@@ -1855,6 +1901,7 @@
     }
     if (button.dataset.teamResultsAction === 'archive-team') handleTrainerTeamArchive(button, false);
     if (button.dataset.teamResultsAction === 'restore-team') handleTrainerTeamArchive(button, true);
+    if (button.dataset.teamResultsAction === 'create-team') createTrainerTeam(button);
     if (button.dataset.teamResultAction === 'save') saveTrainerTeamResult(button, false);
     if (button.dataset.teamResultAction === 'publish') saveTrainerTeamResult(button, true);
   });
