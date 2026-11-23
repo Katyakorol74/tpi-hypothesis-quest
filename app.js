@@ -583,7 +583,7 @@
       html += '<div class="prior-work-empty">На предыдущих этапах команда пока не записала собственные версии. Можно начать с фактов и вопросов, уже представленных в диаграмме.</div>';
     }
 
-    html += '<div class="fishbone-board"><svg class="fishbone-connectors" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishboneArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M38 350 L1000 350" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishboneArrow)"/><path d="M205 350 L145 115 M535 350 L535 115 M850 350 L925 115 M355 350 L290 585 M690 350 L690 585 M1035 350 L1090 585" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/></svg><div class="fishbone-grid">
+    html += '<div class="fishbone-board"><svg class="fishbone-connectors" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishboneArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M38 350 L1000 350" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishboneArrow)"/><path d="M205 350 L145 115 M535 350 L535 115 M850 350 L925 115 M355 350 L290 585 M690 350 L690 585 M1035 350 L1090 585" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/></svg><div class="fishbone-grid>';
     fishboneCategories.forEach((cat) => {
       const items = allCauses.filter((item) => item.category === cat.key);
       html += '<article class="fishbone-branch"><div class="branch-head"><span>' + escapeHtml(cat.en) + '</span><h4>' + escapeHtml(cat.title) + '</h4></div>';
