@@ -1869,6 +1869,16 @@
     showScreen('loadingScreen');
     init();
   });
+  $('trainerErrorAccessButton').addEventListener('click', () => {
+    if (!state.client) {
+      $('trainerStatus').textContent = 'Подключение к Supabase ещё не создано. Попробуйте повторить подключение.';
+      showScreen('trainerScreen');
+      $('trainerAuthPanel').classList.remove('hidden');
+      $('trainerWorkshopsPanel').classList.add('hidden');
+      return;
+    }
+    showTrainerPanel();
+  });
   window.addEventListener('beforeunload', stopRealtime);
 
   init();
