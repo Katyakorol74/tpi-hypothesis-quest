@@ -819,7 +819,6 @@
       problem,
       '',
       '2. ФАКТЫ И ИСХОДНАЯ ТОЧКА',
-      'Факты по проблеме и контекст: ' + reportValue('team_initial_evidence'),
       'Факты, на которые опиралась команда: ' + reportValue('team_initial_evidence'),
       'Первая версия причины команды: ' + reportValue('team_initial_cause'),
       'Первое предложенное действие команды: ' + reportValue('team_initial_action'),
@@ -874,7 +873,7 @@
       repeatChosen ? 'D · Данные: ' + reportValue('hadi_data') : '',
       repeatChosen ? 'I · Инсайт: ' + reportValue('hadi_insight') : '',
       '',
-      'Ограничения: ' + reportValueFromObject(result, 'limitations')
+      'Ограничения данных: ' + reportValueFromObject(result, 'limitations')
     ];
     return lines.filter((line,index) => line !== '' || lines[index - 1] !== '').join('\n');
   }
@@ -894,7 +893,7 @@
       'Наша гипотеза: если ' + reportValue('hypothesis_if') + ', то ' + reportValue('hypothesis_then') + ', потому что ' + reportValue('hypothesis_because') + '.',
       'Для проверки мы спроектировали ограниченный тест: ' + reportValue('experiment_action') + '.',
       '',
-      'По метрике «' + reportValueFromObject(result, 'metric_name') + '» получили: baseline — ' + reportValueFromObject(result, 'baseline_value') + ', цель — ' + reportValueFromObject(result, 'target_value') + ', фактический результат — ' + reportValueFromObject(result, 'actual_value') + '. Оценка: ' + monthlyOutcomeLabel(result.outcome) + '.',
+      'По метрике «' + reportValueFromObject(result, 'metric_name') + (result.metric_unit ? ' (' + result.metric_unit + ')' : '') + '» получили: baseline — ' + reportValueFromObject(result, 'baseline_value') + ', цель — ' + reportValueFromObject(result, 'target_value') + ', фактический результат — ' + reportValueFromObject(result, 'actual_value') + '. Оценка: ' + monthlyOutcomeLabel(result.outcome) + '.',
       'Выборка и период: ' + reportValueFromObject(result, 'sample_period') + '. Дополнительные показатели: ' + reportValueFromObject(result, 'supporting_metrics') + '.',
       'Побочные эффекты: ' + reportValueFromObject(result, 'side_effects') + '. Внешние факторы: ' + reportValueFromObject(result, 'external_factors') + '. Ограничения: ' + reportValueFromObject(result, 'limitations') + '.',
       '',
