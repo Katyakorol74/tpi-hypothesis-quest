@@ -365,3 +365,44 @@ textarea:focus,input[type=text]:focus,select:focus{border-color:var(--teal);box-
 .manager-assumptions-grid small{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.7px;color:#82909a;font-weight:800}
 .manager-assumptions-grid p{font-size:10px;margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:680px){.manager-assumptions-grid{grid-template-columns:1fr}.manager-assumptions-grid>div.wide{grid-column:auto}}
+
+
+/* Trainer cabinet: independent workshop streams */
+.team-panel-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.trainer-page{max-width:1120px;margin:42px auto;padding:0 18px 50px}
+.trainer-page-heading,.trainer-list-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;margin-bottom:24px}
+.trainer-page-heading h1{font-size:clamp(30px,4vw,44px);color:var(--navy);margin:6px 0}
+.trainer-page-heading p,.trainer-list-heading p{max-width:620px;font-size:12px}
+.trainer-auth-panel{max-width:620px;margin:32px auto;padding:28px}
+.trainer-auth-panel h2,.trainer-list-heading h2{font-size:22px;color:var(--navy);margin:6px 0}
+.trainer-auth-panel>p{font-size:11px}
+.trainer-login-fields{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:20px 0}
+.trainer-login-fields label{display:flex;flex-direction:column;gap:7px;font-size:10px;font-weight:800;color:var(--navy)}
+.trainer-login-fields input{width:100%;border:1px solid #dce5e8;border-radius:8px;padding:12px;font:inherit;font-size:12px}
+.trainer-message{min-height:18px;margin:13px 0 0;color:#647786;font-size:10px;overflow-wrap:anywhere}
+.trainer-list-heading{align-items:center}
+.trainer-workshop-list{display:flex;flex-direction:column;gap:12px}
+.trainer-workshop-card{display:flex;justify-content:space-between;align-items:center;gap:18px;border:1px solid #e0e8eb;border-radius:13px;background:#fff;padding:18px 20px}
+.trainer-workshop-main{min-width:0;flex:1}
+.trainer-workshop-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.trainer-workshop-title h3{margin:0;color:var(--navy);font-size:15px}
+.trainer-status-pill{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:8px;font-weight:800;letter-spacing:.2px;background:#edf4f2;color:#27745e}
+.trainer-status-pill.locked{background:#f1f1f4;color:#5f6875}
+.trainer-status-pill.archived{background:#fff0eb;color:#a54b37}
+.trainer-workshop-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;color:#7c8a94;font-size:9px}
+.trainer-workshop-meta strong{color:#31495a}
+.trainer-workshop-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.trainer-workshop-actions .button{font-size:9px;padding:9px 12px;white-space:nowrap}
+.button.danger{background:#fff1ef;color:#b63d32;border:1px solid #f1ccc7}
+.button.danger:hover{background:#ffe5e1}
+.trainer-empty{border:1px dashed #d7e1e4;border-radius:12px;background:#f8fafb;color:#687b88;padding:22px;text-align:center;font-size:11px}
+@media(max-width:760px){
+  .trainer-workshop-card{align-items:stretch;flex-direction:column}
+  .trainer-workshop-actions{justify-content:flex-start}
+  .trainer-page-heading,.trainer-list-heading{flex-direction:column;align-items:stretch}
+}
+@media(max-width:600px){
+  .trainer-login-fields{grid-template-columns:1fr}
+  .team-panel-tools{align-items:stretch;flex-direction:column}
+  .trainer-workshop-actions .button{flex:1}
+}
