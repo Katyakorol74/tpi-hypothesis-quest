@@ -885,27 +885,61 @@
         if (!row || !row.field_key) return;
         const incoming = parseAnswer(row.answer);
         state.answers.set(row.field_key, incoming);
-        if (row.field_key === 'flow_stage') {
-          const newMax = Math.min(steps.length, Math.max(1, Number(typeof incoming === 'string' ? incoming : incoming.text) || 1));
-          state.maxStep = Math.max(state.maxStep, newMax);
-          if (state.currentStep < newMax) {
-            state.currentStep = newMax;
-            renderCurrentStep();
-          } else {
-            renderStepper();
-          }
-          return;
-        }
+
+        // Our own edits are already reflected locally. Other participants' edits
+        // should update this room without unnecessarily losing the current cursor.
+        if (row.updated_by === state.user.id) return;
+
         const active = document.activeElement;
-        const isEditing = active && $('stepContent').contains(active);
-        if (!isEditing) renderCurrentStep();
+        const inWorkspace = active && $('stepContent').contains(active);
+        let focusSelector = null;
+        let start = null;
+        let end = null;
+        let activeFieldKey = null;
+
+        if (inWorkspace) {
+          if (active.dataset.fieldKey) {
+            activeFieldKey = active.dataset.fieldKey;
+            focusSelector = '[data-field-key="' + CSS.escape(active.dataset.fieldKey) + '"]';
+          } else if (active.dataset.causeText) {
+            activeFieldKey = 'cause_' + active.dataset.causeText;
+            focusSelector = '[data-cause-text="' + CSS.escape(active.dataset.causeText) + '"]';
+          } else if (active.dataset.causeStatusEdit) {
+            activeFieldKey = 'cause_' + active.dataset.causeStatusEdit;
+            focusSelector = '[data-cause-status-edit="' + CSS.escape(active.dataset.causeStatusEdit) + '"]';
+          } else if (active.dataset.iceRank) {
+            activeFieldKey = 'ice_ratings';
+            focusSelector = '[data-ice-rank="' + CSS.escape(active.dataset.iceRank) + '"][data-rank-part="' + active.dataset.rankPart + '"]';
+          }
+          if (typeof active.selectionStart === 'number') {
+            start = active.selectionStart;
+            end = active.selectionEnd;
+          }
+        }
+
+        // Avoid replacing a field while this participant is actively typing in that same field.
+        const sameFieldIsBeingEdited = activeFieldKey === row.field_key ||
+          (row.field_key.startsWith('cause_') && activeFieldKey && row.field_key.endsWith(activeFieldKey.replace(/^cause_/, '')));
+        if (sameFieldIsBeingEdited) return;
+
+        renderCurrentStep();
+
+        if (focusSelector) {
+          const replacement = $('stepContent').querySelector(focusSelector);
+          if (replacement) {
+            replacement.focus();
+            if (start !== null && typeof replacement.setSelectionRange === 'function') {
+              try { replacement.setSelectionRange(start, end); } catch (_) {}
+            }
+          }
+        }
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') setConnection('Командная синхронизация активна');
       });
   }
 
-  function stopRealtime() {
+    function stopRealtime() {
     if (state.channel) {
       state.client.removeChannel(state.channel);
       state.channel = null;
