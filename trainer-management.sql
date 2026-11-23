@@ -52,14 +52,14 @@ language sql
 stable
 security definer
 set search_path = public, pg_temp
-as $
+as $archive$
   select coalesce((
     select w.is_archived
     from public.workshops w
     where upper(trim(w.join_code)) = upper(trim(p_join_code))
     limit 1
   ), false);
-$;
+$archive$;
 create or replace function public.trainer_list_workshops()
 returns jsonb
 language plpgsql
