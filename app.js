@@ -556,7 +556,7 @@
     html += '</select>';
     html += renderTextCard('followup_decision_reason', 'Почему команда принимает это решение?', 'Опирайтесь на метрики, критерии успеха, побочные эффекты и ограничения данных.', textValue('followup_decision_reason'), true);
     if (repeatChosen) {
-      html += '<div class="hadi-cycle-panel"><div class="hadi-cycle-heading"><div class="eyebrow">Следующая итерация · HADI</div><h3>Запустите новый цикл на основе инсайта</h3><p>Не повторяйте старую гипотезу автоматически. Сначала уточните, чему научил первый тест, затем сформулируйте новую проверку.</p></div><div class="hadi-cycle-flow"><span><b>H</b> Hypothesis</span><i>→</i><span><b>A</b> Action</span><i>→</i><span><b>D</b> Data</span><i>→</i><span><b>I</b> Insight</span><i>↺</i></div><div class="hadi-fields">';
+      html += '<div class="hadi-cycle-panel"><div class="hadi-cycle-heading"><div class="eyebrow">Следующая итерация · HADI</div><h3>Запустите новый цикл на основе инсайта</h3><p>Не повторяйте старую гипотезу автоматически. Возможный вопрос следующего цикла из сценария: можно ли сохранить раннее выявление рисков, если проводить разбор только по заказам с формализованными признаками риска? Сформулируйте собственную версию.</p></div><div class="hadi-cycle-flow"><span><b>H</b> Hypothesis</span><i>→</i><span><b>A</b> Action</span><i>→</i><span><b>D</b> Data</span><i>→</i><span><b>I</b> Insight</span><i>↺</i></div><div class="hadi-fields">';
       html += renderTextCard('hadi_hypothesis', 'H · Новая гипотеза', 'Какое уточнённое предположение проверим в следующем цикле?', textValue('hadi_hypothesis'), true);
       html += renderTextCard('hadi_action', 'A · Действие', 'Какой небольшой и безопасный повторный тест проведём? Что изменим по сравнению с первой версией?', textValue('hadi_action'), true);
       html += renderTextCard('hadi_data', 'D · Данные', 'Что будем собирать: основной показатель, промежуточные метрики, нагрузку, срочные поручения, качество и безопасность?', textValue('hadi_data'), true);
@@ -604,6 +604,18 @@
     const before = result.baseline || {};
     const after = result.after || {};
     const methodsList = selectedMethodNames();
+    const allCauses = collectCauseItems();
+    const categoryTitle = (key) => {
+      const category = fishboneCategories.find((item) => item.key === key);
+      return category ? category.title : 'Другая ветвь';
+    };
+    const statusTitle = (status) => status === 'fact' ? 'Факт' : status === 'unknown' ? 'Неизвестно' : 'Предположение';
+    const causeList = allCauses.length
+      ? allCauses.map((item) => '- [' + statusTitle(item.status) + '; ' + categoryTitle(item.category) + '] ' + item.text).join('\\n')
+      : 'Команда не зафиксировала собственные причины в диаграмме Исикавы.';
+    const managerAssumptions = managerActions
+      .map((item) => '- ' + item.title + ': ' + (textValue(item.key).trim() || 'Не указано'))
+      .join('\\n');
     const repeatChosen = ['repeat_refine','repeat_same'].includes(textValue('followup_decision'));
     const lines = [
       'ПАСПОРТ ГИПОТЕЗЫ',
@@ -618,19 +630,28 @@
       'Поздние статусы: ' + before.late_status_count + ' из ' + before.late_status_total + ' (' + before.late_status_percent + '%).',
       'Срочные поручения: ' + before.urgent_requests + '.',
       'Факты, на которые опиралась команда: ' + reportValue('team_initial_evidence'),
+      'Первая версия причины команды: ' + reportValue('team_initial_cause'),
+      'Первое предложенное действие команды: ' + reportValue('team_initial_action'),
       '',
-      '3. ВЫБРАННОЕ НАПРАВЛЕНИЕ',
+      '3. ВОЗМОЖНЫЕ ПРИЧИНЫ И ИХ СТАТУС',
+      causeList,
+      '',
+      'Предположения за решениями руководителя:',
+      managerAssumptions,
+      'Общий список возможных причин команды: ' + reportValue('manager_possible_causes'),
+      '',
+      '4. ВЫБРАННОЕ НАПРАВЛЕНИЕ',
       cause ? cause.text : 'Причина не выбрана.',
       'ICE: ' + iceScore + (score.length ? ' (I=' + score[0] + ', C=' + score[1] + ', E=' + score[2] + ')' : ''),
       'Обоснование выбора: ' + reportValue('ice_reason'),
       '',
-      '4. ГИПОТЕЗА',
+      '5. ГИПОТЕЗА',
       'Если ' + reportValue('hypothesis_if') + ', то ' + reportValue('hypothesis_then') + ', потому что ' + reportValue('hypothesis_because') + '.',
       'Метрика: ' + reportValue('hypothesis_metric'),
       'Альтернативные объяснения: ' + reportValue('hypothesis_alternatives'),
       'Условие опровержения: ' + reportValue('hypothesis_falsification'),
       '',
-      '5. ПЛАН ПЕРВОГО ЭКСПЕРИМЕНТА',
+      '6. ПЛАН ПЕРВОГО ЭКСПЕРИМЕНТА',
       'Методы: ' + (methodsList.length ? methodsList.join(', ') : 'Не указано'),
       'Масштаб: ' + reportValue('experiment_scope'),
       'Выборка: ' + reportValue('experiment_sample'),
@@ -643,7 +664,7 @@
       'Rollback: ' + reportValue('experiment_rollback'),
       'Ответственные: ' + reportValue('experiment_owner'),
       '',
-      '6. РЕЗУЛЬТАТЫ МЕСЯЧНОЙ ПРОВЕРКИ',
+      '7. РЕЗУЛЬТАТЫ МЕСЯЧНОЙ ПРОВЕРКИ',
       'Просрочки: ' + before.late_orders_percent + '% → ' + after.late_orders_percent + '% (цель ≤25%).',
       'Поздние статусы: ' + before.late_status_percent + '% → ' + after.late_status_percent + '% (цель ≤20%).',
       'Срочные поручения: ' + before.urgent_requests + ' → ' + after.urgent_requests + '.',
@@ -652,7 +673,7 @@
       'Удобство для сотрудников: ' + before.employee_convenience + '/5 → ' + after.employee_convenience + '/5.',
       'Нарушения безопасности и качества: ' + after.safety_quality_violations + '.',
       '',
-      '7. РЕШЕНИЕ И СЛЕДУЮЩИЙ ШАГ',
+      '8. РЕШЕНИЕ И СЛЕДУЮЩИЙ ШАГ',
       decisionLabel(),
       'Обоснование: ' + reportValue('followup_decision_reason'),
       repeatChosen ? 'H · Новая гипотеза: ' + reportValue('hadi_hypothesis') : 'HADI-повтор не выбран.',
