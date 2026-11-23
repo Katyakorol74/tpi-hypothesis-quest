@@ -291,6 +291,28 @@
       });
       await ensureAnonymousSession();
       await loadWorkshop();
+
+      // Resume the last team selected by this anonymous browser session.
+      // Membership is stored in Supabase, not in browser storage.
+      const { data: membership, error: membershipError } = await state.client
+        .from('team_memberships')
+        .select('team_id')
+        .eq('workshop_id', state.workshop.id)
+        .eq('user_id', state.user.id)
+        .maybeSingle();
+
+      if (membershipError) throw membershipError;
+
+      if (membership) {
+        const previousTeam = state.teams.find((team) => team.id === membership.team_id);
+        if (previousTeam) {
+          state.team = { id: previousTeam.id, name: previousTeam.name };
+          state.locked = state.workshop.status === 'locked';
+          await openWorkspace();
+          return;
+        }
+      }
+
       renderTeams();
       showScreen('teamSelectionScreen');
       setConnection('Подключено');
