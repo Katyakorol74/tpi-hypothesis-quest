@@ -67,15 +67,15 @@
   ];
 
   const fishboneCategories = [
-    { key: 'people', title: 'Люди и роли', en: 'MAN', evidence: ['Сотрудники одновременно работают над несколькими заказами.'], prompts: ['Кто отвечает за статус заказа?', 'Хватает ли времени и доступа к информации?', 'Понятно ли распределены роли?'] },
-    { key: 'processes', title: 'Методы и процессы', en: 'METHOD', evidence: ['После утверждения недельного плана поступило 12 срочных поручений.', 'Сотрудники сообщают о частых изменениях приоритетов.'], prompts: ['Как передаются заказы между участниками?', 'Как меняются приоритеты?', 'Есть ли порядок эскалации?'] },
+    { key: 'people', title: 'Люди и роли', en: 'MAN', evidence: ['Сотрудники одновременно работают над несколькими заказами.', 'Руководители смен иногда узнают о проблемах поздно.'], prompts: ['Кто отвечает за статус заказа?', 'Хватает ли времени и доступа к информации?', 'Понятно ли распределены роли и ответственность?'] },
+    { key: 'processes', title: 'Методы и процессы', en: 'METHOD', evidence: ['Сотрудники отмечают частые изменения приоритетов.'], prompts: ['Как передаются заказы между участниками?', 'Есть ли порядок изменения приоритетов?', 'Как и когда эскалируются риски?'] },
     { key: 'equipment', title: 'Оборудование', en: 'MACHINE', evidence: [], prompts: ['Были ли простои оборудования?', 'Совпадают ли ремонты с периодами задержек?', 'Есть ли ограничение мощности?'] },
     { key: 'materials', title: 'Материалы', en: 'MATERIAL', evidence: [], prompts: ['Готовы ли материалы к плановой дате?', 'Есть ли задержки поставок или некомплектность?'] },
-    { key: 'planning', title: 'Планирование и измерение', en: 'MEASUREMENT', evidence: ['18 из 60 заказов просрочены за три месяца.', 'В последнем месяце просрочено 7 из 20 заказов.', 'В 8 из 20 случаев статус о риске обновили уже после его появления.'], prompts: ['Реалистичны ли сроки?', 'Учитывается ли фактическая загрузка?', 'Одинаково ли все определяют просрочку и риск?'] },
-    { key: 'external', title: 'Внешние факторы', en: 'ENVIRONMENT', evidence: [], prompts: ['Менялись ли требования заказчика?', 'Были ли внешние ограничения или задержки?'] }
+    { key: 'planning', title: 'Планирование и измерение', en: 'MEASUREMENT', evidence: ['За три месяца просрочено 18 из 60 заказов: 25%, 30%, 35% по месяцам.', 'В 8 из 20 случаев статус обновлён после появления риска задержки.'], prompts: ['Реалистичны ли плановые сроки?', 'Учитывается ли фактическая загрузка?', 'Одинаково ли все определяют просрочку и риск?'] },
+    { key: 'external', title: 'Внешние факторы', en: 'ENVIRONMENT', evidence: ['После утверждения недельного плана поступило 12 срочных поручений.'], prompts: ['Менялись ли требования заказчиков?', 'Какие внешние ограничения влияли на сроки?', 'Как срочные поручения влияют на уже утверждённый план?'] }
   ];
 
-  const iceVersions = [
+    const iceVersions = [
     { key: 'late_status', title: 'Риски задержек выявляются слишком поздно', sample: 'Пример тренера: 4 × 3 × 5 = 60' },
     { key: 'priority_changes', title: 'Изменения приоритетов нарушают последовательность заказов', sample: 'Пример тренера: 5 × 2 × 4 = 40' },
     { key: 'parallel_work', title: 'Параллельная работа над заказами увеличивает переключения', sample: 'Пример тренера: 5 × 2 × 3 = 30' }
@@ -421,35 +421,182 @@
     return html;
   }
 
+    function makeCauseId() {
+    return window.crypto && typeof window.crypto.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : 'cause-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
+  }
+
+  function collectCauseItems() {
+    const items = [];
+    state.answers.forEach((value, key) => {
+      if (key.startsWith('cause_') && value && typeof value === 'object') {
+        if (value.status === 'deleted') return;
+        items.push({
+          id: value.id || key.slice(key.lastIndexOf('_') + 1),
+          fieldKey: key,
+          category: value.category || key.split('_')[1],
+          text: value.text || '',
+          status: value.status || 'hypothesis',
+          sourceKey: value.sourceKey || null
+        });
+      } else if (key.startsWith('causes_') && value && Array.isArray(value.items)) {
+        const category = key.slice('causes_'.length);
+        value.items.forEach((item, index) => {
+          if (item.status === 'deleted') return;
+          items.push({
+            id: item.id || 'legacy-' + category + '-' + index,
+            fieldKey: key,
+            category,
+            text: item.text || '',
+            status: item.status || 'hypothesis',
+            sourceKey: item.sourceKey || null,
+            legacy: true,
+            legacyIndex: index
+          });
+        });
+      }
+    });
+    return items.filter((item) => item.text.trim());
+  }
+
+  function collectPriorVersions() {
+    const entries = [
+      { key: 'team_initial_cause', title: 'Первая версия причины команды', text: textValue('team_initial_cause') },
+      { key: 'manager_possible_causes', title: 'Возможные причины за решениями руководителя', text: textValue('manager_possible_causes') },
+      { key: 'own_ladder_interpretation', title: 'Интерпретация команды', text: textValue('own_ladder_interpretation') },
+      { key: 'own_ladder_assumption', title: 'Допущение команды', text: textValue('own_ladder_assumption') },
+      { key: 'own_ladder_ignored', title: 'Данные, которые команда могла упустить', text: textValue('own_ladder_ignored') }
+    ];
+    managerActions.forEach((action) => {
+      entries.push({ key: action.key, title: 'Предположение за решением «' + action.title + '»', text: textValue(action.key) });
+    });
+    const transferred = new Set(collectCauseItems().map((item) => item.sourceKey).filter(Boolean));
+    return entries.filter((entry) => entry.text && entry.text.trim()).map((entry) => ({
+      ...entry,
+      transferred: transferred.has(entry.key)
+    }));
+  }
+
+  function transferPriorVersion(sourceKey) {
+    const source = collectPriorVersions().find((entry) => entry.key === sourceKey);
+    if (!source || source.transferred) return;
+    const select = $('stepContent').querySelector('[data-transfer-category="' + sourceKey + '"]');
+    const category = select ? select.value : '';
+    if (!category) {
+      window.alert('Сначала выберите ветвь диаграммы, куда перенести эту версию.');
+      return;
+    }
+    const id = makeCauseId();
+    scheduleSave('cause_' + category + '_' + id, {
+      id,
+      category,
+      text: source.text,
+      status: 'hypothesis',
+      sourceKey
+    });
+    renderCurrentStep();
+  }
+
+  function updateCause(id, patch) {
+    const item = collectCauseItems().find((cause) => cause.id === id);
+    if (!item) return;
+    if (item.legacy) {
+      const current = rawValue(item.fieldKey);
+      const next = current && Array.isArray(current.items) ? current.items.slice() : [];
+      next[item.legacyIndex] = { ...next[item.legacyIndex], ...patch };
+      scheduleSave(item.fieldKey, { items: next });
+    } else {
+      const current = rawValue(item.fieldKey) || {};
+      scheduleSave(item.fieldKey, { ...current, ...patch });
+    }
+  }
+
+  function removeCauseItem(id) {
+    const item = collectCauseItems().find((cause) => cause.id === id);
+    if (!item) return;
+    if (item.legacy) {
+      const current = rawValue(item.fieldKey);
+      const next = current && Array.isArray(current.items) ? current.items.slice() : [];
+      next.splice(item.legacyIndex, 1);
+      scheduleSave(item.fieldKey, { items: next });
+    } else {
+      const current = rawValue(item.fieldKey) || {};
+      scheduleSave(item.fieldKey, { ...current, status: 'deleted' });
+    }
+    renderCurrentStep();
+  }
+
+  function addCause(category) {
+    const input = $('stepContent').querySelector('[data-cause-input="' + category + '"]');
+    const select = $('stepContent').querySelector('[data-cause-status="' + category + '"]');
+    const text = input ? input.value.trim() : '';
+    if (!text) {
+      if (input) input.focus();
+      return;
+    }
+    const id = makeCauseId();
+    scheduleSave('cause_' + category + '_' + id, {
+      id,
+      category,
+      text,
+      status: select ? select.value : 'hypothesis'
+    });
+    renderCurrentStep();
+  }
+
     function renderFishboneStep() {
-    let html = '<div class="fishbone-intro"><div><div class="eyebrow">Системный анализ · 6M</div><h3>От фактов — к возможным причинам</h3><p>В центре диаграммы — проблема. На ветви перенесены известные сведения кейса и вопросы, по которым пока нет данных. Добавьте версии причин и отметьте их статус.</p></div><div class="fishbone-status-legend"><span class="tag fact">Факт кейса</span><span class="tag hypothesis">Предположение</span><span class="tag unknown">Неизвестно</span></div></div>';
-    html += '<div class="fishbone-board"><svg class="fishbone-svg" viewBox="0 0 1200 500" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M45 250 L1110 250" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishArrow)"/><path d="M190 70 L315 250 M515 70 L575 250 M840 70 L815 250 M335 430 L440 250 M665 430 L700 250 M990 430 L950 250" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/><circle cx="315" cy="250" r="7" fill="#d94b3d"/><circle cx="575" cy="250" r="7" fill="#d94b3d"/><circle cx="815" cy="250" r="7" fill="#d94b3d"/><circle cx="440" cy="250" r="7" fill="#d94b3d"/><circle cx="700" cy="250" r="7" fill="#d94b3d"/><circle cx="950" cy="250" r="7" fill="#d94b3d"/></svg>';
-    html += '<div class="fishbone-grid">';
+    const chosenProblem = problemOptions.find((option) => option.value === textValue('problem_choice'));
+    const problemText = textValue('problem_choice') === 'custom'
+      ? (textValue('problem_custom') || 'Собственная формулировка команды')
+      : (chosenProblem ? chosenProblem.title : '18 из 60 заказов за три месяца выполнены с нарушением срока');
+    const priorVersions = collectPriorVersions();
+    const allCauses = collectCauseItems();
+
+    let html = '<div class="fishbone-intro"><div><div class="eyebrow">Системный анализ · 6 направлений</div><h3>Продолжите исследование собственной версии</h3><p>Ниже собраны ваши наработки с предыдущих этапов. Перенесите важные версии в подходящие ветви. Добавьте новые причины, если они появились в обсуждении.</p></div><div class="fishbone-status-legend"><span class="tag fact">Факт</span><span class="tag hypothesis">Предположение</span><span class="tag unknown">Неизвестно</span></div></div>';
+
+    if (priorVersions.length) {
+      html += '<section class="prior-work-panel"><div class="exercise-kicker">Наработки команды с предыдущих этапов</div><h3>Не начинайте анализ заново — используйте то, что уже сформулировали</h3><div class="prior-work-list">';
+      priorVersions.forEach((entry) => {
+        html += '<article class="prior-work-card"><div><small>' + escapeHtml(entry.title) + '</small><p>' + escapeHtml(entry.text) + '</p></div><div class="prior-work-actions"><select data-transfer-category="' + escapeHtml(entry.key) + '"><option value="">Выберите ветвь…</option>';
+        fishboneCategories.forEach((cat) => {
+          html += '<option value="' + cat.key + '">' + escapeHtml(cat.title) + '</option>';
+        });
+        html += '</select><button type="button" class="button ' + (entry.transferred ? 'secondary' : 'primary') + '" data-transfer-prior="' + escapeHtml(entry.key) + '" ' + (entry.transferred || state.locked ? 'disabled' : '') + '>' + (entry.transferred ? 'Перенесено' : 'Перенести в Исикаву') + '</button></div></article>';
+      });
+      html += '</div></section>';
+    } else {
+      html += '<div class="prior-work-empty">На предыдущих этапах команда пока не записала собственные версии. Можно начать с фактов и вопросов, уже представленных в диаграмме.</div>';
+    }
+
+    html += '<div class="fishbone-board"><div class="fishbone-grid">';
     fishboneCategories.forEach((cat) => {
-      const itemsValue = rawValue('causes_' + cat.key);
-      const items = itemsValue && Array.isArray(itemsValue.items) ? itemsValue.items : [];
+      const items = allCauses.filter((item) => item.category === cat.key);
       html += '<article class="fishbone-branch"><div class="branch-head"><span>' + escapeHtml(cat.en) + '</span><h4>' + escapeHtml(cat.title) + '</h4></div>';
       if (cat.evidence.length) {
-        html += '<div class="branch-evidence"><small>Что уже известно</small>';
+        html += '<div class="branch-evidence"><small>Данные и сведения исходного кейса</small>';
         cat.evidence.forEach((fact) => { html += '<div class="evidence-chip"><i></i>' + escapeHtml(fact) + '</div>'; });
         html += '</div>';
       } else {
-        html += '<div class="branch-evidence unknown-box"><small>Пока нет данных</small>';
+        html += '<div class="branch-evidence unknown-box"><small>Пока нет подтверждённых данных</small>';
         cat.prompts.slice(0, 2).forEach((prompt) => { html += '<div class="unknown-prompt">? ' + escapeHtml(prompt) + '</div>'; });
         html += '</div>';
       }
+
       html += '<div class="cause-list">';
-      items.forEach((item, index) => {
-        html += '<div class="cause-item"><span class="tag ' + (item.status === 'fact' ? 'fact' : item.status === 'unknown' ? 'unknown' : 'hypothesis') + '">' + (item.status === 'fact' ? 'Факт' : item.status === 'unknown' ? 'Неизвестно' : 'Версия') + '</span><span>' + escapeHtml(item.text) + '</span><button type="button" data-remove-cause="' + cat.key + '" data-cause-index="' + index + '" aria-label="Удалить причину">×</button></div>';
+      items.forEach((item) => {
+        const label = item.status === 'fact' ? 'Факт' : item.status === 'unknown' ? 'Неизвестно' : 'Предположение';
+        html += '<div class="cause-item editable-cause"><div class="cause-edit-main"><span class="tag ' + (item.status === 'fact' ? 'fact' : item.status === 'unknown' ? 'unknown' : 'hypothesis') + '">' + label + '</span><textarea data-cause-text="' + escapeHtml(item.id) + '" aria-label="Текст версии" ' + (state.locked ? 'disabled' : '') + '>' + escapeHtml(item.text) + '</textarea></div><div class="cause-edit-actions"><select data-cause-status-edit="' + escapeHtml(item.id) + '" ' + (state.locked ? 'disabled' : '') + '><option value="hypothesis" ' + (item.status === 'hypothesis' ? 'selected' : '') + '>Предположение</option><option value="fact" ' + (item.status === 'fact' ? 'selected' : '') + '>Факт</option><option value="unknown" ' + (item.status === 'unknown' ? 'selected' : '') + '>Неизвестно</option></select><button type="button" data-remove-cause="' + escapeHtml(item.id) + '" aria-label="Удалить версию" ' + (state.locked ? 'disabled' : '') + '>×</button></div></div>';
       });
-      html += '</div><div class="cause-entry"><input type="text" data-cause-input="' + cat.key + '" placeholder="Добавить возможную причину…"><select data-cause-status="' + cat.key + '"><option value="hypothesis">Предположение</option><option value="fact">Факт</option><option value="unknown">Неизвестно</option></select><button type="button" class="add-cause-button" data-add-cause="' + cat.key + '">+</button></div></article>';
+      html += '</div><div class="cause-entry"><input type="text" data-cause-input="' + cat.key + '" placeholder="Добавить свою версию…" ' + (state.locked ? 'disabled' : '') + '><select data-cause-status="' + cat.key + '" ' + (state.locked ? 'disabled' : '') + '><option value="hypothesis">Предположение</option><option value="fact">Факт</option><option value="unknown">Неизвестно</option></select><button type="button" class="add-cause-button" data-add-cause="' + cat.key + '" ' + (state.locked ? 'disabled' : '') + '>+</button></div></article>';
     });
-    html += '</div><div class="fishbone-problem"><span>ПРОБЛЕМА</span><strong>18 из 60 заказов выполнены с нарушением срока</strong></div></div>';
-    html += '<div class="fishbone-coach-note"><strong>Правило работы с диаграммой</strong><p>Факт может стать основанием для версии, но не доказывает причинную связь. Простои оборудования, задержки материалов и реалистичность сроков в исходных данных не установлены — оставьте их как вопросы для диагностики.</p></div>';
+    html += '</div><div class="fishbone-problem"><span>ПРОБЛЕМА, КОТОРУЮ ВЫ ВЫБРАЛИ</span><strong>' + escapeHtml(problemText) + '</strong><small>Исходные данные: 18 из 60 заказов просрочены</small></div></div>';
+
+    html += '<div class="fishbone-bottom-grid"><div class="fishbone-coach-note"><strong>Не путайте наличие факта с доказанной причиной</strong><p>Поздние статусы, срочные поручения и параллельная работа присутствуют в кейсе. Их влияние на просрочки необходимо проверить. Простои оборудования, задержки материалов и реалистичность сроков пока неизвестны.</p></div><div class="fishbone-own-summary"><strong>Сколько версий собрала команда</strong><b>' + allCauses.length + '</b><span>Во всех шести ветвях диаграммы</span></div></div>';
     return html;
   }
 
-  function renderIceStep() {
+    function renderIceStep() {
     let html = '<div class="ice-intro"><div><div class="eyebrow">Приоритизация</div><h3>Что проверять первым?</h3><p>Оцените каждое направление по шкале от 1 до 5. Произведение помогает определить очередность проверки, но не доказывает, что причина истинная.</p></div><div class="ice-formula">ICE = I × C × E</div></div>';
     html += '<div class="ice-table"><div class="ice-table-head"><span>Возможная причина</span><span>Impact</span><span>Confidence</span><span>Ease</span><span>ICE</span></div>';
     iceVersions.forEach((version) => {
@@ -573,29 +720,6 @@
       const target = $('stepContent').querySelector('[data-ice-score="' + version.key + '"]');
       if (target) target.textContent = vals.every((n) => n > 0) ? String(vals.reduce((a, b) => a * b, 1)) : '—';
     });
-  }
-
-  function addCause(category) {
-    const input = $('stepContent').querySelector('[data-cause-input="' + category + '"]');
-    const select = $('stepContent').querySelector('[data-cause-status="' + category + '"]');
-    const text = input ? input.value.trim() : '';
-    if (!text) {
-      if (input) input.focus();
-      return;
-    }
-    const current = rawValue('causes_' + category);
-    const items = current && Array.isArray(current.items) ? current.items.slice() : [];
-    items.push({ text, status: select ? select.value : 'hypothesis' });
-    scheduleSave('causes_' + category, { items });
-    renderCurrentStep();
-  }
-
-  function removeCause(category, index) {
-    const current = rawValue('causes_' + category);
-    const items = current && Array.isArray(current.items) ? current.items.slice() : [];
-    items.splice(index, 1);
-    scheduleSave('causes_' + category, { items });
-    renderCurrentStep();
   }
 
   function updateMethodSelection() {
