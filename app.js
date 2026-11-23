@@ -331,7 +331,7 @@
     $('progressFill').style.width = (state.currentStep / steps.length * 100) + '%';
     $('lockedBanner').classList.toggle('hidden', !state.locked);
     if (state.locked) {
-      content.querySelectorAll('input, textarea, select, button[data-edit]').forEach((el) => { el.disabled = true; });
+      content.querySelectorAll('input, textarea, select, button[data-edit], button[data-add-cause], button[data-remove-cause], #checkFactsButton').forEach((el) => { el.disabled = true; });
       $('nextStepButton').disabled = true;
     } else {
       $('nextStepButton').disabled = false;
@@ -367,6 +367,7 @@
     const choice = problemOptions.find((option) => option.value === textValue('problem_choice'));
     let html = '<div class="reveal-banner"><span class="reveal-icon">!</span><div><div class="eyebrow">Новая информация по делу</div><h3>Как отреагировал руководитель</h3><p>В учебной ситуации руководитель выбрал быстрое объяснение: решил, что основная проблема — недостаточная дисциплина сотрудников.</p></div></div>';
     html += '<div class="choice-review"><small>Ваш первоначальный выбор</small><strong>' + escapeHtml(choice ? choice.title : 'Команда ещё не зафиксировала выбор') + '</strong><span>Сравните своё определение проблемы с тем, как руководитель интерпретировал ситуацию.</span></div>';
+    html += '<div class="problem-reveal"><div class="eyebrow">Что можно утверждать по данным</div><strong>Главная наблюдаемая проблема — систематическое нарушение сроков выполнения заказов.</strong><p>За три месяца просрочено 18 из 60 заказов (30%); в последнем месяце — 7 из 20 (35%). «Недостаточная дисциплина» — возможное объяснение, а поздние статусы и изменения приоритетов — сигналы для исследования. Ни одно из них пока не доказывает причину.</p></div>';
     html += '<div class="exercise-panel"><div class="exercise-kicker">Вопрос 02 · Что стоит за решением?</div><h3>Руководитель предложил четыре действия</h3><p class="muted">Не оценивайте, правильные ли это меры. Определите, какое объяснение проблемы и какое предположение заложены в каждом решении.</p><div class="manager-grid">';
     managerActions.forEach((item, index) => {
       html += '<article class="manager-card"><div class="manager-card-number">0' + (index + 1) + '</div><div class="eyebrow">Управленческое решение</div><h4>' + escapeHtml(item.title) + '</h4><p>' + escapeHtml(item.action) + '</p><label for="' + item.key + '">' + escapeHtml(item.question) + '</label><textarea id="' + item.key + '" data-field-key="' + item.key + '" placeholder="' + escapeHtml(item.hint) + '">' + escapeHtml(textValue(item.key)) + '</textarea></article>';
