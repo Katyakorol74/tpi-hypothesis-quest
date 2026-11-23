@@ -179,7 +179,7 @@ begin
     end if;
   end if;
 
-  insert into public.team_followup_results (
+  insert into public.team_followup_results as stored (
     workshop_id, team_id, results, is_published, published_at, updated_by, updated_at
   )
   values (
@@ -196,11 +196,11 @@ begin
     results = excluded.results,
     is_published = case
       when p_publish then true
-      else public.team_followup_results.is_published
+      else stored.is_published
     end,
     published_at = case
       when p_publish then now()
-      else public.team_followup_results.published_at
+      else stored.published_at
     end,
     updated_by = auth.uid(),
     updated_at = now()
