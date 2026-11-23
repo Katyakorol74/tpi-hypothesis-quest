@@ -224,14 +224,23 @@
     if (!data || !data.workshop_id || !Array.isArray(data.teams)) {
       throw new Error('Не удалось получить команды. Проверьте код занятия.');
     }
+    const { data: archivedIds, error: archivedTeamsError } = await state.client.rpc('get_archived_team_ids', {
+      p_join_code: state.workshopCode
+    });
+    if (archivedTeamsError) throw archivedTeamsError;
+    const archivedSet = new Set((Array.isArray(archivedIds) ? archivedIds : []).map(String));
     state.workshop = { id: data.workshop_id, name: data.name, status: data.status };
-    state.teams = data.teams;
+    state.teams = data.teams.filter((team) => !archivedSet.has(String(team.id)));
     state.locked = data.status === 'locked';
   }
 
   function renderTeams() {
     const grid = $('teamGrid');
     grid.replaceChildren();
+    if (!state.teams.length) {
+      grid.innerHTML = '<div class="team-archive-empty"><strong>Сейчас нет доступных команд</strong><p>Все команды этого потока могут находиться в архиве. Попросите тренера восстановить нужную команду или открыть новый поток.</p></div>';
+      return;
+    }
     state.teams.forEach((team, index) => {
       const button = document.createElement('button');
       button.className = 'team-card';
@@ -402,8 +411,10 @@
     const workshop = state.trainerSelectedWorkshop;
     if (!workshop) return;
 
-    const publishedCount = state.trainerTeamFollowups.filter((team) => team.is_published).length;
-    let html = '<div class="trainer-team-results-heading"><div><div class="eyebrow">Индивидуальные результаты · ' + escapeHtml(workshop.join_code || '') + '</div><h2>' + escapeHtml(workshop.name || 'Поток') + '</h2><p class="muted">Заполняйте фактические итоги по плану каждой команды. Публикация одной команды не открывает результаты остальным.</p></div><div class="trainer-team-results-heading-actions"><span class="trainer-followup-state">Опубликовано: ' + publishedCount + ' из ' + state.trainerTeamFollowups.length + '</span><button type="button" class="button secondary" data-team-results-action="back">← К списку потоков</button></div></div>';
+    const activeTeams = state.trainerTeamFollowups.filter((team) => !team.is_archived);
+    const publishedCount = activeTeams.filter((team) => team.is_published).length;
+    const archivedCount = state.trainerTeamFollowups.length - activeTeams.length;
+    let html = '<div class="trainer-team-results-heading"><div><div class="eyebrow">Индивидуальные результаты · ' + escapeHtml(workshop.join_code || '') + '</div><h2>' + escapeHtml(workshop.name || 'Поток') + '</h2><p class="muted">Заполняйте фактические итоги по плану каждой команды. Публикация одной команды не открывает результаты остальным.</p></div><div class="trainer-team-results-heading-actions"><span class="trainer-followup-state">Опубликовано: ' + publishedCount + ' из ' + activeTeams.length + ' · в архиве: ' + archivedCount + '</span><button type="button" class="button secondary" data-team-results-action="back">← К списку потоков</button></div></div>';
 
     if (!state.trainerTeamFollowups.length) {
       html += '<div class="trainer-empty">В этом потоке пока нет команд.</div>';
@@ -424,11 +435,12 @@
       const metric = trainerAnswerText(answers, 'hypothesis_metric');
       const planAction = trainerAnswerText(answers, 'experiment_action');
       const targetDescription = trainerAnswerText(answers, 'experiment_success');
-      const status = team.is_published ? 'Результаты опубликованы команде' : (team.results ? 'Черновик сохранён' : 'Результаты ещё не заполнены');
-      const statusClass = team.is_published ? 'published' : 'draft';
+      const isArchived = Boolean(team.is_archived);
+      const status = isArchived ? 'Команда в архиве' : (team.is_published ? 'Результаты опубликованы команде' : (team.results ? 'Черновик сохранён' : 'Результаты ещё не заполнены'));
+      const statusClass = isArchived ? 'archived' : (team.is_published ? 'published' : 'draft');
 
-      html += '<article class="trainer-team-result-card" data-team-result-card data-team-id="' + escapeHtml(team.team_id) + '">';
-      html += '<div class="trainer-team-result-card-head"><div><div class="eyebrow">Команда ' + (index + 1) + '</div><h3>' + escapeHtml(team.team_name || 'Команда') + '</h3></div><span class="trainer-team-result-status ' + statusClass + '">' + status + '</span></div>';
+      html += '<article class="trainer-team-result-card ' + (isArchived ? 'team-is-archived' : '') + '" data-team-result-card data-team-id="' + escapeHtml(team.team_id) + '">';
+      html += '<div class="trainer-team-result-card-head"><div><div class="eyebrow">Команда ' + (index + 1) + '</div><h3>' + escapeHtml(team.team_name || 'Команда') + '</h3></div><span class="trainer-team-result-status ' + statusClass + '">' + status + '</span><button type="button" class="button ' + (isArchived ? 'secondary' : 'danger') + '" data-team-results-action="' + (isArchived ? 'restore-team' : 'archive-team') + '" data-team-id="' + escapeHtml(team.team_id) + '">' + (isArchived ? 'Вернуть команду' : 'Архивировать команду') + '</button></div>';
 
       html += '<div class="trainer-team-hypothesis-brief">';
       html += '<div><small>Выбранная причина</small><p>' + escapeHtml(cause || 'Команда не сохранила выбранную причину') + '</p></div>';
@@ -437,6 +449,11 @@
       html += '<div><small>Планируемое действие</small><p>' + escapeHtml(planAction || 'Не указано') + '</p></div>';
       if (targetDescription) html += '<div><small>Критерии успеха из плана</small><p>' + escapeHtml(targetDescription) + '</p></div>';
       html += '</div>';
+
+      if (isArchived) {
+        html += '<div class="trainer-team-archived-note">Доступ участников закрыт. Ответы команды и результаты проверки сохранены. После восстановления команда снова появится в списке участников.</div></article>';
+        return;
+      }
 
       html += '<div class="trainer-team-result-fields">';
       html += '<label>Основная метрика<input type="text" data-team-result-field="metric_name" value="' + escapeHtml(saved.metric_name || metric) + '" placeholder="Например: доля заказов с просрочкой"></label>';
@@ -463,6 +480,47 @@
     });
     html += '</div>';
     target.innerHTML = html;
+  }
+
+  async function handleTrainerTeamArchive(button, restore) {
+    const teamId = button.dataset.teamId;
+    const team = state.trainerTeamFollowups.find((item) => item.team_id === teamId);
+    if (!team || !state.trainerSelectedWorkshop) return;
+    const message = restore
+      ? 'Восстановить команду «' + team.team_name + '»? Сохранённые ответы останутся доступными.'
+      : 'Архивировать только команду «' + team.team_name + '»? Её участники потеряют доступ к комнате, но ответы и результаты сохранятся. Другие команды потока продолжат работу.';
+    if (!window.confirm(message)) return;
+
+    button.disabled = true;
+    try {
+      const rpcName = restore ? 'trainer_restore_team' : 'trainer_archive_team';
+      const { error } = await state.client.rpc(rpcName, {
+        p_workshop_id: state.trainerSelectedWorkshop.id,
+        p_team_id: teamId
+      });
+      if (error) throw error;
+
+      const { data, error: reloadError } = await state.client.rpc('trainer_get_team_followups', {
+        p_workshop_id: state.trainerSelectedWorkshop.id
+      });
+      if (reloadError) throw reloadError;
+      state.trainerTeamFollowups = Array.isArray(data) ? data : [];
+      renderTrainerTeamResults();
+
+      const { data: workshops, error: workshopError } = await state.client.rpc('trainer_list_workshops');
+      if (workshopError) throw workshopError;
+      state.trainerWorkshops = Array.isArray(workshops) ? workshops : state.trainerWorkshops;
+      $('trainerStatus').textContent = restore
+        ? 'Команда восстановлена. Её ответы сохранены.'
+        : 'Команда архивирована. Остальные команды потока не затронуты.';
+      renderTrainerWorkshops();
+      $('trainerWorkshopList').classList.add('hidden');
+      $('trainerTeamResultsPanel').classList.remove('hidden');
+    } catch (error) {
+      console.error('Team archive action:', error);
+      $('trainerStatus').textContent = error.message || 'Не удалось выполнить действие.';
+      button.disabled = false;
+    }
   }
 
   async function saveTrainerTeamResult(button, publish) {
@@ -527,11 +585,12 @@
       const locked = workshop.status === 'locked';
       const label = archived ? 'В архиве' : (locked ? 'Результаты зафиксированы' : 'Активный поток');
       const date = workshop.created_at ? new Date(workshop.created_at).toLocaleString('ru-RU') : '';
-      const followupLabel = 'Опубликовано командам: ' + Number(workshop.followup_published_count || 0) + ' из ' + Number(workshop.team_count || 0);
+      const followupLabel = 'Опубликовано результатов: ' + Number(workshop.followup_published_count || 0) + ' из ' + Number(workshop.team_count || 0);
+      const archivedTeamCount = Number(workshop.archived_team_count || 0);
       return '<article class="trainer-workshop-card">' +
         '<div class="trainer-workshop-main">' +
           '<div class="trainer-workshop-title"><h3>' + escapeHtml(workshop.name || 'Без названия') + '</h3><span class="trainer-status-pill ' + (archived ? 'archived' : locked ? 'locked' : 'active') + '">' + label + '</span></div>' +
-          '<div class="trainer-workshop-meta"><span>Код: <strong>' + escapeHtml(workshop.join_code || '') + '</strong></span><span>Команд: <strong>' + Number(workshop.team_count || 0) + '</strong></span>' + (date ? '<span>Создан: ' + escapeHtml(date) + '</span>' : '') + '</div>' +
+          '<div class="trainer-workshop-meta"><span>Код: <strong>' + escapeHtml(workshop.join_code || '') + '</strong></span><span>Активных команд: <strong>' + Number(workshop.team_count || 0) + '</strong></span>' + (archivedTeamCount ? '<span>В архиве: <strong>' + archivedTeamCount + '</strong></span>' : '') + (date ? '<span>Создан: ' + escapeHtml(date) + '</span>' : '') + '</div>' +
         '</div>' +
         '<div class="trainer-workshop-actions">' +
           '<button type="button" class="button secondary" data-trainer-action="copy" data-workshop-code="' + escapeHtml(workshop.join_code || '') + '">Ссылка потока</button>' +
@@ -539,9 +598,10 @@
           (!archived ? '<button type="button" class="button primary" data-trainer-action="team-results" data-workshop-id="' + escapeHtml(workshop.id) + '">Результаты по командам</button>' : '') +
           (archived
             ? '<button type="button" class="button secondary" data-trainer-action="restore" data-workshop-id="' + escapeHtml(workshop.id) + '">Вернуть из архива</button>'
-            : '<button type="button" class="button secondary" data-trainer-action="archive" data-workshop-id="' + escapeHtml(workshop.id) + '">Архивировать</button>' +
+            : '<button type="button" class="button secondary" data-trainer-action="archive" data-workshop-id="' + escapeHtml(workshop.id) + '">Архивировать весь поток</button>' +
               '<button type="button" class="button danger" data-trainer-action="reset" data-workshop-id="' + escapeHtml(workshop.id) + '">Сбросить прогресс</button>') +
         '</div>' +
+        '<p class="trainer-workshop-archive-note">Архивация потока остановит доступ сразу ко всем командам внутри него. Для архивации одной команды откройте «Результаты по командам».</p>' +
       '</article>';
     }).join('');
   }
@@ -586,7 +646,7 @@
     let rpcName = '';
     let args = { p_workshop_id: workshopId };
     if (action === 'archive') {
-      if (!window.confirm('Архивировать поток «' + workshop.name + '»? Все ответы сохранятся. Участники больше не смогут продолжать работу.')) return;
+      if (!window.confirm('Архивировать ВЕСЬ поток «' + workshop.name + '» вместе со всеми командами? Участники всех команд потеряют доступ, но ответы сохранятся. Для архивации одной команды используйте раздел «Результаты по командам».')) return;
       rpcName = 'trainer_archive_workshop';
     } else if (action === 'restore') {
       if (!window.confirm('Вернуть поток «' + workshop.name + '» из архива?')) return;
@@ -1682,6 +1742,32 @@
           console.error('Refresh team-specific follow-up:', error);
         }
       })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'teams',
+        filter: 'id=eq.' + state.team.id
+      }, async (payload) => {
+        if (payload.new && payload.new.is_archived === true) {
+          const previousTeamName = state.team.name;
+          stopRealtime();
+          state.team = null;
+          state.answers.clear();
+          state.followupPublished = false;
+          state.followupPublishedAt = null;
+          state.followupResults = null;
+          state.currentStep = 1;
+          state.maxStep = 1;
+          try {
+            await loadWorkshop();
+            renderTeams();
+            showScreen('teamSelectionScreen');
+            setConnection('Команда «' + previousTeamName + '» архивирована. Выберите другую.');
+          } catch (error) {
+            showError(error.message || 'Команда архивирована.');
+          }
+        }
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') setConnection('Командная синхронизация активна');
       });
@@ -1767,6 +1853,8 @@
       state.trainerTeamFollowups = [];
       return;
     }
+    if (button.dataset.teamResultsAction === 'archive-team') handleTrainerTeamArchive(button, false);
+    if (button.dataset.teamResultsAction === 'restore-team') handleTrainerTeamArchive(button, true);
     if (button.dataset.teamResultAction === 'save') saveTrainerTeamResult(button, false);
     if (button.dataset.teamResultAction === 'publish') saveTrainerTeamResult(button, true);
   });
