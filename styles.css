@@ -406,3 +406,72 @@ textarea:focus,input[type=text]:focus,select:focus{border-color:var(--teal);box-
   .team-panel-tools{align-items:stretch;flex-direction:column}
   .trainer-workshop-actions .button{flex:1}
 }
+
+
+/* Monthly experiment review, repeat HADI cycle and generated report */
+.monthly-waiting{max-width:760px;margin:24px auto;background:#f7fafb;border:1px dashed #ccdadd;border-radius:14px;padding:28px;text-align:center}
+.monthly-waiting h3{font-size:22px;color:var(--navy);margin:9px 0}
+.monthly-waiting p{font-size:11px;color:var(--muted);max-width:560px;margin:0 auto;line-height:1.6}
+.monthly-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:4px 0 20px}
+.monthly-intro h3{font-size:21px;color:var(--navy);margin:5px 0}
+.monthly-intro p{font-size:11px;max-width:650px;line-height:1.6}
+.monthly-published-mark{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:7px 11px;background:#e8f4ef;color:#277554;font-size:9px;font-weight:800}
+.monthly-results-table-wrap{width:100%;overflow-x:auto;border:1px solid #e0e8eb;border-radius:12px;background:#fff}
+.monthly-results-table{border-collapse:collapse;width:100%;min-width:760px;font-size:10px}
+.monthly-results-table th,.monthly-results-table td{padding:12px 11px;border-bottom:1px solid #e9eef0;text-align:left;vertical-align:middle}
+.monthly-results-table thead th{background:#f3f7f8;color:#657782;font-size:8px;text-transform:uppercase;letter-spacing:.5px}
+.monthly-results-table tbody th{min-width:170px;color:var(--navy);font-size:10px}
+.monthly-results-table tbody td{color:#596d79}
+.monthly-results-table tbody tr:last-child th,.monthly-results-table tbody tr:last-child td{border-bottom:0}
+.monthly-results-table td strong{color:var(--navy);font-size:11px}
+.result-pill{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:8px;font-weight:800;white-space:nowrap}
+.result-good{background:#e8f4ed;color:#27734f}
+.result-bad{background:#fff0ee;color:#b34338}
+.result-neutral{background:#f0f3f5;color:#667782}
+.monthly-insight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.monthly-insight-grid article{padding:14px;background:#f7f9fa;border:1px solid #e3eaec;border-radius:11px;min-width:0}
+.monthly-insight-grid small{display:block;color:#788994;text-transform:uppercase;letter-spacing:.7px;font-size:8px;font-weight:800;margin-bottom:7px}
+.monthly-insight-grid strong{display:block;color:var(--navy);font-size:12px;line-height:1.5}
+.monthly-insight-grid p{font-size:9px;color:#71818c;line-height:1.5;margin:6px 0 0}
+.monthly-caution{background:#fff8ef;border:1px solid #efd8b7;border-radius:11px;padding:15px 17px;margin:14px 0;color:#785e3e}
+.monthly-caution strong{display:block;font-size:11px;color:#79552a;margin-bottom:8px}
+.monthly-caution ul{margin:0;padding-left:18px}
+.monthly-caution li{font-size:9px;line-height:1.6;margin:4px 0}
+.monthly-caution p{font-size:10px;line-height:1.6;margin:10px 0 0;color:#79552a;font-weight:700}
+.monthly-decision{border:1px solid #dbe6e8;border-radius:14px;padding:19px;margin:18px 0;background:#fff}
+.monthly-decision h3{font-size:19px;color:var(--navy);margin:5px 0}
+.monthly-decision>p{font-size:10px;line-height:1.6;color:#687984;max-width:900px}
+.monthly-select-label{display:block;margin:17px 0 6px;color:var(--navy);font-size:10px;font-weight:800}
+.monthly-decision select[data-field-key="followup_decision"]{display:block;width:100%;max-width:780px;padding:12px;border:1px solid #d8e2e6;border-radius:8px;background:#fff;color:var(--ink);font-size:11px}
+.hadi-cycle-panel{margin-top:18px;padding:17px;border:1px solid #cfe2de;border-radius:13px;background:#f4faf8}
+.hadi-cycle-heading h3{font-size:17px;color:var(--navy);margin:5px 0}
+.hadi-cycle-heading p{font-size:10px;color:#687d82;line-height:1.6}
+.hadi-cycle-flow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 17px;padding:12px;background:#e6f2ef;border-radius:9px}
+.hadi-cycle-flow span{display:flex;align-items:center;gap:6px;color:#335e5a;font-size:9px;font-weight:800}
+.hadi-cycle-flow b{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#287f75;color:#fff;font-size:11px}
+.hadi-cycle-flow i{font-style:normal;color:#7c9e98;font-weight:800}
+.hadi-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.monthly-decision-note{margin-top:14px;padding:12px 14px;border-radius:9px;background:#f3f6f8;color:#687b87;font-size:10px;line-height:1.5}
+.passport-intro{margin:5px 0 18px}
+.passport-intro h3{font-size:21px;color:var(--navy);margin:5px 0}
+.passport-intro p{font-size:11px;line-height:1.6;max-width:850px}
+.generated-document{background:#fff;border:1px solid #dfe7e9;border-radius:13px;padding:17px;margin:14px 0;box-shadow:0 6px 20px rgba(16,36,52,.035)}
+.generated-document-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:1px solid #e8edef}
+.generated-document-head h3{font-size:16px;color:var(--navy);margin:4px 0 0}
+.generated-document pre{white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font:10px/1.65 Manrope,Arial,sans-serif;color:#415764;margin:14px 0 0;max-height:640px;overflow:auto}
+.pitch-document{border-color:#d8e8e4;background:#fbfefd}
+.passport-footer-note{padding:13px 15px;border-radius:10px;background:#f1f6f5;color:#58716b;font-size:10px;line-height:1.5}
+.trainer-followup-state{display:inline-flex;align-items:center;padding:7px 9px;border-radius:7px;background:#f1f5f6;color:#627782;font-size:8px;font-weight:800;white-space:nowrap}
+@media(max-width:850px){
+  .monthly-insight-grid{grid-template-columns:1fr}
+  .monthly-intro{flex-direction:column}
+}
+@media(max-width:650px){
+  .hadi-fields{grid-template-columns:1fr}
+  .hadi-cycle-flow{flex-wrap:wrap;justify-content:center}
+  .monthly-decision{padding:14px}
+  .generated-document{padding:13px}
+  .generated-document-head{align-items:flex-start;flex-direction:column}
+  .generated-document-head .button{width:100%}
+  .trainer-followup-state{width:100%;justify-content:center}
+}
