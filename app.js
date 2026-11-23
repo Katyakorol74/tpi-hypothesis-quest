@@ -3,7 +3,7 @@
 
   const CONFIG = window.APP_CONFIG || {};
   const $ = (id) => document.getElementById(id);
-  const screens = ['loadingScreen', 'errorScreen', 'teamSelectionScreen', 'workspaceScreen'];
+
   const state = {
     client: null,
     user: null,
@@ -14,48 +14,105 @@
     channel: null,
     saveTimers: new Map(),
     saveQueue: new Map(),
-    answers: new Map()
+    answers: new Map(),
+    currentStep: 1,
+    maxStep: 1
   };
 
-  const diagnosisFields = [
-    { key: 'problem', label: '1. Как мы формулируем проблему?', hint: 'Опишите наблюдаемую проблему без объяснения причин.', full: true },
-    { key: 'facts', label: '2. Подтверждённые факты', hint: 'Какие сведения подтверждены исходными данными?', full: true },
-    { key: 'interpretations', label: '3. Интерпретации и допущения', hint: 'Какие выводы пока нельзя считать доказанными?' },
-    { key: 'unknowns', label: '4. Что пока неизвестно?', hint: 'Каких данных или источников не хватает?' },
-    { key: 'fishbone_people', label: '5А. Исикава — люди и роли', hint: 'Роли, ответственность, загрузка, компетенции.' },
-    { key: 'fishbone_processes', label: '5Б. Исикава — методы и процессы', hint: 'Передача заказов, изменения приоритетов, эскалация.' },
-    { key: 'fishbone_equipment', label: '5В. Исикава — оборудование', hint: 'Простои, ограничения мощности, доступность.' },
-    { key: 'fishbone_materials', label: '5Г. Исикава — материалы', hint: 'Поставки, комплектность, готовность материалов.' },
-    { key: 'fishbone_planning', label: '5Д. Исикава — планирование и данные', hint: 'Реалистичность сроков, загрузка, точность статусов.' },
-    { key: 'fishbone_external', label: '5Е. Исикава — внешние факторы', hint: 'Заказчики, внешние ограничения, изменение требований.' },
-    { key: 'ice', label: '6. Оценка ICE и приоритет', hint: 'Какие причины проверять первыми и почему?', full: true },
-    { key: 'diagnostic_conclusion', label: '7. Заключение комиссии', hint: 'Что установлено, какие версии приоритетны и что необходимо выяснить дальше?', full: true }
+  const steps = [
+    { title: 'Служебная записка', description: 'Сначала определите, что именно является проблемой. Не ищите причину раньше времени.' },
+    { title: 'Решение руководителя', description: 'Посмотрите, как руководитель объяснил ситуацию и какие действия предложил. Найдите предположения за решениями.' },
+    { title: 'Факты и суждения', description: 'Разберите, где заканчиваются данные и начинаются отбор информации, интерпретации и выводы.' },
+    { title: 'Диаграмма Исикавы', description: 'Перенесите известные факты в систему причин и добавьте версии, которые предстоит проверить.' },
+    { title: 'Приоритизация ICE', description: 'Выберите, какое направление разумнее исследовать первым.' },
+    { title: 'Формулировка гипотезы', description: 'Превратите выбранное направление в проверяемую гипотезу о решении.' },
+    { title: 'MVT и безопасный тест', description: 'Спроектируйте минимальную проверку и заранее зафиксируйте критерии.' }
   ];
 
-  const experimentFields = [
-    { key: 'hypothesis_if', label: '1. ЕСЛИ — какое действие?', hint: 'Что конкретно меняем? Кто и что будет делать?', full: true },
-    { key: 'hypothesis_then', label: '2. ТО — какой результат?', hint: 'Метрика, исходное значение, целевой показатель и срок.', full: true },
-    { key: 'hypothesis_because', label: '3. ПОТОМУ ЧТО — механизм', hint: 'Почему изменение должно повлиять на результат?', full: true },
-    { key: 'baseline', label: '4. Baseline', hint: 'Текущее значение показателя и период измерения.' },
-    { key: 'target_metric', label: '5. Метрика и целевое значение', hint: 'Что измеряем и какого результата ожидаем?' },
-    { key: 'method', label: '6. Метод проверки / MVT', hint: 'Анализ записей, наблюдение, интервью, прототип, моделирование или пилот.', full: true },
-    { key: 'budget_choice', label: '7. Выбор методов в рамках 80 единиц', hint: 'Какие методы выбираете и сколько условных единиц тратите?' },
-    { key: 'scope_duration', label: '8. Масштаб и длительность', hint: 'Участок, смены, выборка, срок проверки.' },
-    { key: 'success_criteria', label: '9. Критерии успеха', hint: 'Заранее заданный порог или диапазон результата.' },
-    { key: 'failure_criteria', label: '10. Условие неуспеха', hint: 'При каком результате не масштабируем решение?' },
-    { key: 'risks', label: '11. Риски и ограничения', hint: 'Ограничения, требования безопасности, возможные побочные эффекты.', full: true },
-    { key: 'stop_rollback', label: '12. Stop-критерии и rollback', hint: 'Кто остановит тест и как вернёмся к исходному процессу?', full: true },
-    { key: 'responsibles', label: '13. Ответственные и сроки', hint: 'Владелец эксперимента, исполнители и согласующие.' }
+  const problemOptions = [
+    { value: 'deadlines', title: 'Заказы систематически выполняются с нарушением сроков', note: 'Наблюдаемая проблема, которую подтверждают показатели.' },
+    { value: 'discipline', title: 'Сотрудники недостаточно дисциплинированы', note: 'Оценочное объяснение, а не установленный факт.' },
+    { value: 'statuses', title: 'Сотрудники поздно обновляют статусы', note: 'Наблюдаемый сигнал в части заказов, но не доказанная причина всех просрочек.' },
+    { value: 'priorities', title: 'Часто меняются приоритеты', note: 'Фактор, который может влиять на проблему и требует проверки.' }
+  ];
+
+  const managerActions = [
+    { key: 'manager_daily_reports', title: 'Ежедневные отчёты', action: 'Ввести ежедневную отчётность по каждому заказу.', question: 'Какое предположение стоит за этим решением?', hint: 'Например: информация о рисках появляется поздно, потому что сотрудники не сообщают о ней вовремя.' },
+    { key: 'manager_approval', title: 'Согласование изменений приоритетов', action: 'Согласовывать любые изменения приоритетов с руководителем.', question: 'Какую причину руководитель предполагает?', hint: 'Что должно быть верным, чтобы согласование помогло?' },
+    { key: 'manager_kpi', title: 'Персональные KPI', action: 'Ввести индивидуальные показатели соблюдения сроков.', question: 'Какое объяснение проблемы заложено в этом действии?', hint: 'На кого и на что руководитель возлагает ответственность?' },
+    { key: 'manager_meetings', title: 'Ежедневные совещания', action: 'Проводить ежедневные совещания по статусам заказов.', question: 'Какой механизм улучшения предполагает руководитель?', hint: 'Почему частые встречи должны повлиять на сроки?' }
+  ];
+
+  const ladderItems = [
+    { id: '01', text: 'За три месяца 18 из 60 заказов выполнены с нарушением срока.', correct: 'fact', why: 'Это числовые данные о выполнении заказов.' },
+    { id: '02', text: 'Руководитель обратил внимание на 8 случаев позднего обновления статуса из 20.', correct: 'selection', why: 'Сам показатель 8 из 20 — факт, но выделение именно этого показателя — отбор информации.' },
+    { id: '03', text: 'Сотрудники безответственно относятся к работе.', correct: 'interpretation', why: 'Это оценка поведения, а не непосредственно измеряемое событие.' },
+    { id: '04', text: 'Вероятно, сотрудники не понимают важность своевременной информации.', correct: 'assumption', why: 'Это возможное объяснение, которое пока не подтверждено.' },
+    { id: '05', text: 'Основная причина просрочек — недостаточная дисциплина.', correct: 'conclusion', why: 'Это вывод о причине на основании ограниченной информации.' },
+    { id: '06', text: 'Без постоянного контроля сотрудники не соблюдают сроки.', correct: 'belief', why: 'Это обобщённое убеждение руководителя о том, как работает система.' },
+    { id: '07', text: 'Руководитель вводит ежедневные отчёты и персональные KPI.', correct: 'action', why: 'Это конкретное управленческое действие, вытекающее из убеждения.' },
+    { id: '08', text: 'После утверждения недельного плана поступило 12 срочных поручений.', correct: 'fact', why: 'В кейсе указано конкретное количество срочных поручений.' },
+    { id: '09', text: 'Руководитель выделил позднее обновление статусов среди других факторов.', correct: 'selection', why: 'Это выбор части информации, на которой сосредоточили внимание.' },
+    { id: '10', text: 'Сотрудники не справляются с нагрузкой, потому что не умеют расставлять приоритеты.', correct: 'interpretation', why: 'Это объяснение ситуации; оно может содержать допущение и требует проверки.' }
+  ];
+
+  const ladderOptions = [
+    ['fact', 'Объективная реальность / факт'],
+    ['selection', 'Отбор информации'],
+    ['interpretation', 'Интерпретация'],
+    ['assumption', 'Допущение'],
+    ['conclusion', 'Вывод'],
+    ['belief', 'Убеждение'],
+    ['action', 'Действие']
+  ];
+
+  const fishboneCategories = [
+    { key: 'people', title: 'Люди и роли', en: 'MAN', evidence: ['Сотрудники одновременно работают над несколькими заказами.'], prompts: ['Кто отвечает за статус заказа?', 'Хватает ли времени и доступа к информации?', 'Понятно ли распределены роли?'] },
+    { key: 'processes', title: 'Методы и процессы', en: 'METHOD', evidence: ['После утверждения недельного плана поступило 12 срочных поручений.', 'Сотрудники сообщают о частых изменениях приоритетов.'], prompts: ['Как передаются заказы между участниками?', 'Как меняются приоритеты?', 'Есть ли порядок эскалации?'] },
+    { key: 'equipment', title: 'Оборудование', en: 'MACHINE', evidence: [], prompts: ['Были ли простои оборудования?', 'Совпадают ли ремонты с периодами задержек?', 'Есть ли ограничение мощности?'] },
+    { key: 'materials', title: 'Материалы', en: 'MATERIAL', evidence: [], prompts: ['Готовы ли материалы к плановой дате?', 'Есть ли задержки поставок или некомплектность?'] },
+    { key: 'planning', title: 'Планирование и измерение', en: 'MEASUREMENT', evidence: ['18 из 60 заказов просрочены за три месяца.', 'В последнем месяце просрочено 7 из 20 заказов.', 'В 8 из 20 случаев статус о риске обновили уже после его появления.'], prompts: ['Реалистичны ли сроки?', 'Учитывается ли фактическая загрузка?', 'Одинаково ли все определяют просрочку и риск?'] },
+    { key: 'external', title: 'Внешние факторы', en: 'ENVIRONMENT', evidence: [], prompts: ['Менялись ли требования заказчика?', 'Были ли внешние ограничения или задержки?'] }
+  ];
+
+  const iceVersions = [
+    { key: 'late_status', title: 'Риски задержек выявляются слишком поздно', sample: 'Пример тренера: 4 × 3 × 5 = 60' },
+    { key: 'priority_changes', title: 'Изменения приоритетов нарушают последовательность заказов', sample: 'Пример тренера: 5 × 2 × 4 = 40' },
+    { key: 'parallel_work', title: 'Параллельная работа над заказами увеличивает переключения', sample: 'Пример тренера: 5 × 2 × 3 = 30' }
+  ];
+
+  const methods = [
+    { key: 'records', title: 'Анализ записей заказов', cost: 10 },
+    { key: 'observation', title: 'Наблюдение на смене', cost: 20 },
+    { key: 'interviews', title: 'Интервью с участниками', cost: 15 },
+    { key: 'prototype', title: 'Ручной шаблон / прототип', cost: 25 },
+    { key: 'modeling', title: 'Моделирование', cost: 20 },
+    { key: 'pilot', title: 'Ограниченный пилот', cost: 45 }
   ];
 
   function showScreen(id) {
-    screens.forEach((screenId) => $(screenId).classList.toggle('hidden', screenId !== id));
+    ['loadingScreen', 'errorScreen', 'teamSelectionScreen', 'workspaceScreen'].forEach((screenId) => {
+      $(screenId).classList.toggle('hidden', screenId !== id);
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
   }
 
   function setConnection(text, ok = true) {
     const el = $('connectionStatus');
-    el.innerHTML = `<span class="status-dot" style="background:${ok ? '#55c28b' : '#e6a63b'}"></span><span></span>`;
+    el.innerHTML = '<span class="status-dot"></span><span></span>';
     el.querySelector('span:last-child').textContent = text;
+    el.querySelector('.status-dot').classList.toggle('offline', !ok);
+  }
+
+  function setSaveState(text, mode) {
+    const el = $('saveIndicator');
+    el.className = 'save-indicator ' + (mode || '');
+    el.querySelector('span').textContent = text;
   }
 
   function showError(message) {
@@ -64,8 +121,89 @@
     showScreen('errorScreen');
   }
 
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  function rawValue(key) {
+    return state.answers.has(key) ? state.answers.get(key) : null;
+  }
+
+  function textValue(key) {
+    const value = rawValue(key);
+    if (typeof value === 'string') return value;
+    if (value && typeof value.text === 'string') return value.text;
+    return '';
+  }
+
+  function numberValue(key, fallback = '') {
+    const value = textValue(key);
+    return value === '' ? fallback : Number(value);
+  }
+
+  function parseAnswer(answer) {
+    if (answer && typeof answer === 'object' && !Array.isArray(answer) && typeof answer.text === 'string') return answer.text;
+    return answer;
+  }
+
+  function taskKeyFor(fieldKey) {
+    if (fieldKey === 'flow_stage') return 'progress';
+    if (fieldKey === 'problem_choice') return 'problem_selection';
+    if (fieldKey.startsWith('manager_')) return 'manager_decisions';
+    if (fieldKey.startsWith('classify_') || fieldKey === 'facts_checked') return 'facts_sorting';
+    if (fieldKey.startsWith('causes_')) return 'ishikawa';
+    if (fieldKey.startsWith('ice_')) return 'ice';
+    if (fieldKey.startsWith('hypothesis_')) return 'hypothesis';
+    if (fieldKey === 'method_selection') return 'mvt';
+    if (fieldKey.startsWith('experiment_')) return 'experiment';
+    return 'general';
+  }
+
+  function scheduleSave(fieldKey, value) {
+    if (state.locked) return;
+    state.answers.set(fieldKey, value);
+    state.saveQueue.set(fieldKey, value);
+    setSaveState('Сохраняем в облако…', 'pending');
+    const existing = state.saveTimers.get(fieldKey);
+    if (existing) clearTimeout(existing);
+    state.saveTimers.set(fieldKey, setTimeout(() => saveField(fieldKey), 550));
+  }
+
+  async function saveField(fieldKey) {
+    if (state.locked || !state.team || !state.user) return false;
+    const value = state.saveQueue.get(fieldKey);
+    if (value === undefined) return true;
+    state.saveTimers.delete(fieldKey);
+    try {
+      const payload = {
+        workshop_id: state.workshop.id,
+        team_id: state.team.id,
+        task_key: taskKeyFor(fieldKey),
+        field_key: fieldKey,
+        answer: value && typeof value === 'object' ? value : { text: String(value) },
+        updated_by: state.user.id,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await state.client
+        .from('team_answers')
+        .upsert(payload, { onConflict: 'team_id,task_key,field_key' });
+      if (error) throw error;
+      if (state.saveQueue.get(fieldKey) === value) state.saveQueue.delete(fieldKey);
+      if (state.saveQueue.size === 0 && state.saveTimers.size === 0) {
+        setSaveState('Все изменения сохранены', 'saved');
+      }
+      const now = new Date();
+      $('lastSavedAt').textContent = 'Последнее сохранение: ' + now.toLocaleTimeString('ru-RU');
+      return true;
+    } catch (error) {
+      console.error('Save error:', error);
+      setSaveState('Не удалось сохранить — проверьте соединение', 'error');
+      return false;
+    }
+  }
+
+  async function flushQueue() {
+    state.saveTimers.forEach((timer) => clearTimeout(timer));
+    state.saveTimers.clear();
+    const keys = Array.from(state.saveQueue.keys());
+    const results = await Promise.all(keys.map((key) => saveField(key)));
+    return results.every(Boolean) && state.saveQueue.size === 0;
   }
 
   async function ensureAnonymousSession() {
@@ -81,12 +219,10 @@
   }
 
   async function loadWorkshop() {
-    const { data, error } = await state.client.rpc('get_workshop_teams', {
-      p_join_code: CONFIG.WORKSHOP_CODE
-    });
+    const { data, error } = await state.client.rpc('get_workshop_teams', { p_join_code: CONFIG.WORKSHOP_CODE });
     if (error) throw error;
     if (!data || !data.workshop_id || !Array.isArray(data.teams)) {
-      throw new Error('Не удалось получить список команд. Проверьте код занятия и настройки Supabase.');
+      throw new Error('Не удалось получить команды. Проверьте код занятия.');
     }
     state.workshop = { id: data.workshop_id, name: data.name, status: data.status };
     state.teams = data.teams;
@@ -100,7 +236,7 @@
       const button = document.createElement('button');
       button.className = 'team-card';
       button.type = 'button';
-      button.innerHTML = `<span class="team-symbol">0${index + 1}</span><strong>${escapeHtml(team.name)}</strong><span>Открыть рабочую комнату →</span>`;
+      button.innerHTML = '<span class="team-symbol">0' + (index + 1) + '</span><strong>' + escapeHtml(team.name) + '</strong><span>Открыть рабочую комнату <b>→</b></span>';
       button.addEventListener('click', () => joinTeam(team));
       grid.appendChild(button);
     });
@@ -122,36 +258,6 @@
     }
   }
 
-  function parseAnswer(value) {
-    if (value && typeof value === 'object' && typeof value.text === 'string') return value.text;
-    if (typeof value === 'string') return value;
-    return '';
-  }
-
-  function buildFields(containerId, fields) {
-    const container = $(containerId);
-    container.replaceChildren();
-    fields.forEach((field) => {
-      const card = document.createElement('article');
-      card.className = `field-card${field.full ? ' full' : ''}`;
-      const label = document.createElement('label');
-      label.htmlFor = `field-${field.key}`;
-      label.textContent = field.label;
-      const hint = document.createElement('div');
-      hint.className = 'field-hint';
-      hint.textContent = field.hint;
-      const textarea = document.createElement('textarea');
-      textarea.id = `field-${field.key}`;
-      textarea.dataset.fieldKey = field.key;
-      textarea.placeholder = 'Введите ответ команды…';
-      textarea.value = state.answers.has(field.key) ? state.answers.get(field.key) : '';
-      textarea.disabled = state.locked;
-      textarea.addEventListener('input', () => scheduleSave(field.key, textarea.value));
-      card.append(label, hint, textarea);
-      container.appendChild(card);
-    });
-  }
-
   async function loadAnswers() {
     const { data, error } = await state.client
       .from('team_answers')
@@ -161,6 +267,9 @@
     if (error) throw error;
     state.answers.clear();
     (data || []).forEach((row) => state.answers.set(row.field_key, parseAnswer(row.answer)));
+    const savedStep = Number(textValue('flow_stage') || 1);
+    state.maxStep = Math.min(steps.length, Math.max(1, savedStep));
+    state.currentStep = state.maxStep;
   }
 
   async function openWorkspace() {
@@ -172,88 +281,387 @@
     $('workspaceTitle').textContent = state.team.name;
     $('workspaceSubtitle').textContent = state.workshop.name;
     $('lockedBanner').classList.toggle('hidden', !state.locked);
-    buildFields('diagnosisFields', diagnosisFields);
-    buildFields('experimentFields', experimentFields);
-    setSaveState(state.locked ? 'Зафиксировано тренером' : 'Все изменения сохранены', 'saved');
-    $('lastSavedAt').textContent = state.locked ? 'Режим только чтения' : 'Облачное автосохранение включено';
     showScreen('workspaceScreen');
+    renderCurrentStep();
     setConnection('Подключено');
+    setSaveState(state.locked ? 'Результаты зафиксированы' : 'Все изменения сохранены', 'saved');
+    $('lastSavedAt').textContent = state.locked ? 'Режим только чтение' : 'Облачное автосохранение включено';
     startRealtime();
-    activateTab('diagnosisSection');
   }
 
-  function activateTab(sectionId) {
-    document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.target === sectionId));
-    $('diagnosisSection').classList.toggle('hidden', sectionId !== 'diagnosisSection');
-    $('experimentSection').classList.toggle('hidden', sectionId !== 'experimentSection');
+  function renderStepper() {
+    const nav = $('stepNav');
+    nav.replaceChildren();
+    steps.forEach((step, index) => {
+      const number = index + 1;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'step-nav-item' + (number === state.currentStep ? ' active' : '') + (number < state.currentStep ? ' completed' : '');
+      button.disabled = number > state.maxStep;
+      button.innerHTML = '<span class="step-nav-number">' + (number < state.currentStep ? '✓' : String(number).padStart(2, '0')) + '</span><span class="step-nav-label">' + escapeHtml(step.title) + '</span>';
+      button.addEventListener('click', () => {
+        if (number <= state.maxStep) {
+          state.currentStep = number;
+          renderCurrentStep();
+        }
+      });
+      nav.appendChild(button);
+    });
   }
 
-  function setSaveState(text, mode) {
-    const el = $('saveIndicator');
-    el.className = `save-indicator${mode === 'pending' ? ' pending' : ''}${mode === 'error' ? ' error' : ''}`;
-    el.querySelector('span').textContent = text;
-  }
+  function renderCurrentStep() {
+    const step = steps[state.currentStep - 1];
+    $('stepTitle').textContent = step.title;
+    $('stepDescription').textContent = step.description;
+    renderStepper();
 
-  function scheduleSave(fieldKey, value) {
-    if (state.locked) return;
-    state.answers.set(fieldKey, value);
-    state.saveQueue.set(fieldKey, value);
-    setSaveState('Сохраняем в облако…', 'pending');
-    const existing = state.saveTimers.get(fieldKey);
-    if (existing) clearTimeout(existing);
-    state.saveTimers.set(fieldKey, setTimeout(() => saveField(fieldKey), 650));
-  }
+    const content = $('stepContent');
+    if (state.currentStep === 1) content.innerHTML = renderProblemStep();
+    if (state.currentStep === 2) content.innerHTML = renderManagerStep();
+    if (state.currentStep === 3) content.innerHTML = renderFactsStep();
+    if (state.currentStep === 4) content.innerHTML = renderFishboneStep();
+    if (state.currentStep === 5) content.innerHTML = renderIceStep();
+    if (state.currentStep === 6) content.innerHTML = renderHypothesisStep();
+    if (state.currentStep === 7) content.innerHTML = renderExperimentStep();
 
-  async function saveField(fieldKey) {
-    if (state.locked || !state.team || !state.user) return;
-    const value = state.saveQueue.get(fieldKey);
-    if (value === undefined) return;
-    state.saveTimers.delete(fieldKey);
-    try {
-      const payload = {
-        workshop_id: state.workshop.id,
-        team_id: state.team.id,
-        task_key: fieldKey.startsWith('fishbone_') ? 'diagnosis_ishikawa' : (diagnosisFields.some((f) => f.key === fieldKey) ? 'diagnosis' : 'experiment'),
-        field_key: fieldKey,
-        answer: { text: value },
-        updated_by: state.user.id,
-        updated_at: new Date().toISOString()
-      };
-      const { error } = await state.client
-        .from('team_answers')
-        .upsert(payload, { onConflict: 'team_id,task_key,field_key' });
-      if (error) throw error;
-      // Do not discard a newer value typed while this request was in flight.
-      if (state.saveQueue.get(fieldKey) === value) {
-        state.saveQueue.delete(fieldKey);
-      }
-      const timestamp = new Date();
-      $('lastSavedAt').textContent = `Последнее сохранение: ${timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-      if (state.saveQueue.size === 0 && state.saveTimers.size === 0) setSaveState('Все изменения сохранены', 'saved');
-      return true;
-    } catch (error) {
-      console.error('Save error:', error);
-      setSaveState('Не удалось сохранить — проверьте соединение', 'error');
-      return false;
+    bindCurrentStep();
+    $('prevStepButton').disabled = state.currentStep === 1;
+    $('nextStepButton').textContent = state.currentStep === steps.length ? 'К завершению проекта' : 'Продолжить →';
+    $('stepPosition').textContent = 'Этап ' + state.currentStep + ' из ' + steps.length;
+    $('progressFill').style.width = (state.currentStep / steps.length * 100) + '%';
+    $('lockedBanner').classList.toggle('hidden', !state.locked);
+    if (state.locked) {
+      content.querySelectorAll('input, textarea, select, button[data-edit]').forEach((el) => { el.disabled = true; });
+      $('nextStepButton').disabled = true;
+    } else {
+      $('nextStepButton').disabled = false;
     }
+  }
+
+  function renderProblemStep() {
+    const selected = textValue('problem_choice');
+    let html = '<div class="case-memo">';
+    html += '<div class="memo-top"><span class="memo-stamp">СЛУЖЕБНАЯ ЗАПИСКА</span><span class="memo-number">№ 14/ПР · ВНУТРЕННИЙ ДОКУМЕНТ</span></div>';
+    html += '<h3>О систематическом нарушении сроков выполнения заказов</h3>';
+    html += '<p>За последние три месяца производственное подразделение регулярно нарушает сроки выполнения заказов. В результате задерживаются отгрузки, растёт количество претензий клиентов, сотрудники работают в авральном режиме.</p>';
+    html += '<div class="memo-signature"><span>От: руководителя производственного подразделения</span><span>Кому: рабочей группе</span></div>';
+    html += '<div class="memo-data-grid">';
+    html += '<div><small>Месяц 1</small><strong>5 из 20</strong><em>25% просрочек</em></div>';
+    html += '<div><small>Месяц 2</small><strong>6 из 20</strong><em>30% просрочек</em></div>';
+    html += '<div><small>Месяц 3</small><strong>7 из 20</strong><em>35% просрочек</em></div>';
+    html += '<div class="memo-data-total"><small>Всего за период</small><strong>18 из 60</strong><em>30% заказов</em></div>';
+    html += '</div><div class="memo-ask"><strong>Поручение рабочей группе</strong><p>Определите, в чём заключается главная проблема, прежде чем предлагать меры по её устранению.</p></div></div>';
+    html += '<section class="exercise-panel"><div class="exercise-kicker">Вопрос 01 · Первая реакция</div><h3>Что здесь является главной проблемой?</h3><p class="muted">Выберите одно утверждение. Пока не объясняйте причины — сформулируйте только то, что происходит.</p>';
+    problemOptions.forEach((option) => {
+      html += '<label class="choice-card ' + (selected === option.value ? 'selected' : '') + '"><input type="radio" name="problemChoice" value="' + option.value + '" ' + (selected === option.value ? 'checked' : '') + '><span class="choice-radio"></span><span class="choice-copy"><strong>' + escapeHtml(option.title) + '</strong><small>' + escapeHtml(option.note) + '</small></span></label>';
+    });
+    if (selected) {
+      const chosen = problemOptions.find((option) => option.value === selected);
+      html += '<div class="feedback-note"><strong>Выбор команды сохранён.</strong><br>' + escapeHtml(chosen ? chosen.title : '') + '<br><span>После продолжения откроется решение руководителя. К этому выбору можно будет вернуться.</span></div>';
+    }
+    html += '</section>';
+    return html;
+  }
+
+  function renderManagerStep() {
+    const choice = problemOptions.find((option) => option.value === textValue('problem_choice'));
+    let html = '<div class="reveal-banner"><span class="reveal-icon">!</span><div><div class="eyebrow">Новая информация по делу</div><h3>Как отреагировал руководитель</h3><p>В учебной ситуации руководитель выбрал быстрое объяснение: решил, что основная проблема — недостаточная дисциплина сотрудников.</p></div></div>';
+    html += '<div class="choice-review"><small>Ваш первоначальный выбор</small><strong>' + escapeHtml(choice ? choice.title : 'Команда ещё не зафиксировала выбор') + '</strong><span>Сравните своё определение проблемы с тем, как руководитель интерпретировал ситуацию.</span></div>';
+    html += '<div class="exercise-panel"><div class="exercise-kicker">Вопрос 02 · Что стоит за решением?</div><h3>Руководитель предложил четыре действия</h3><p class="muted">Не оценивайте, правильные ли это меры. Определите, какое объяснение проблемы и какое предположение заложены в каждом решении.</p><div class="manager-grid">';
+    managerActions.forEach((item, index) => {
+      html += '<article class="manager-card"><div class="manager-card-number">0' + (index + 1) + '</div><div class="eyebrow">Управленческое решение</div><h4>' + escapeHtml(item.title) + '</h4><p>' + escapeHtml(item.action) + '</p><label for="' + item.key + '">' + escapeHtml(item.question) + '</label><textarea id="' + item.key + '" data-field-key="' + item.key + '" placeholder="' + escapeHtml(item.hint) + '">' + escapeHtml(textValue(item.key)) + '</textarea></article>';
+    });
+    html += '</div><div class="manager-prompt"><strong>Общий вопрос команде</strong><p>Если руководитель прав, что должно быть верно в реальной системе? Какие причины нужно проверить, прежде чем вводить эти меры?</p><textarea data-field-key="manager_possible_causes" placeholder="Запишите 2–3 возможные причины, которые стоят за управленческими решениями…">' + escapeHtml(textValue('manager_possible_causes')) + '</textarea></div></div>';
+    return html;
+  }
+
+  function renderFactsStep() {
+    let html = '<div class="ladder-intro"><div class="ladder-stat"><strong>10</strong><span>утверждений из кейса</span></div><div><h3>Поднимитесь по лестнице умозаключений</h3><p>Руководитель выбирает часть данных, придаёт им значение, формирует объяснение и действует. Разложите каждое высказывание по ступени, к которой оно относится.</p></div></div>';
+    html += '<div class="classification-legend"><span>Факт</span><span>Отбор данных</span><span>Интерпретация</span><span>Допущение</span><span>Вывод</span><span>Убеждение</span><span>Действие</span></div>';
+    html += '<div class="ladder-list">';
+    ladderItems.forEach((item) => {
+      const selected = textValue('classify_' + item.id);
+      html += '<article class="ladder-card"><div class="ladder-id">' + item.id + '</div><div class="ladder-statement">' + escapeHtml(item.text) + '</div><select data-field-key="classify_' + item.id + '" aria-label="Ступень высказывания"><option value="">Выберите ступень…</option>';
+      ladderOptions.forEach(([value, label]) => {
+        html += '<option value="' + value + '" ' + (selected === value ? 'selected' : '') + '>' + escapeHtml(label) + '</option>';
+      });
+      html += '</select>';
+      if (textValue('facts_checked') === 'yes') {
+        html += '<div class="ladder-answer"><b>Ключ:</b> ' + escapeHtml(ladderOptions.find((pair) => pair[0] === item.correct)[1]) + '<br><small>' + escapeHtml(item.why) + '</small></div>';
+      }
+      html += '</article>';
+    });
+    html += '</div>';
+    html += '<div class="check-panel"><div><strong>Проверка классификации</strong><p>Сначала распределите утверждения, затем откройте ключ и обсудите расхождения.</p></div><button class="button secondary" id="checkFactsButton">' + (textValue('facts_checked') === 'yes' ? 'Ключ открыт' : 'Показать ключ') + '</button></div>';
+    html += '<div class="insight-strip"><strong>Важно:</strong> позднее обновление статуса — факт. Но утверждение «из-за этого сорвался срок» — уже причинная версия. Она требует проверки.</div>';
+    return html;
+  }
+
+  function renderFishboneStep() {
+    let html = '<div class="fishbone-intro"><div><div class="eyebrow">Системный анализ · 6M</div><h3>От фактов — к возможным причинам</h3><p>В центре диаграммы — проблема. На ветви перенесены известные сведения кейса и вопросы, по которым пока нет данных. Добавьте версии причин и отметьте их статус.</p></div><div class="fishbone-status-legend"><span class="tag fact">Факт кейса</span><span class="tag hypothesis">Предположение</span><span class="tag unknown">Неизвестно</span></div></div>';
+    html += '<div class="fishbone-board"><svg class="fishbone-svg" viewBox="0 0 1200 500" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M45 250 L1110 250" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishArrow)"/><path d="M190 70 L315 250 M515 70 L575 250 M840 70 L815 250 M335 430 L440 250 M665 430 L700 250 M990 430 L950 250" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/><circle cx="315" cy="250" r="7" fill="#d94b3d"/><circle cx="575" cy="250" r="7" fill="#d94b3d"/><circle cx="815" cy="250" r="7" fill="#d94b3d"/><circle cx="440" cy="250" r="7" fill="#d94b3d"/><circle cx="700" cy="250" r="7" fill="#d94b3d"/><circle cx="950" cy="250" r="7" fill="#d94b3d"/></svg>';
+    html += '<div class="fishbone-grid">';
+    fishboneCategories.forEach((cat) => {
+      const itemsValue = rawValue('causes_' + cat.key);
+      const items = itemsValue && Array.isArray(itemsValue.items) ? itemsValue.items : [];
+      html += '<article class="fishbone-branch"><div class="branch-head"><span>' + escapeHtml(cat.en) + '</span><h4>' + escapeHtml(cat.title) + '</h4></div>';
+      if (cat.evidence.length) {
+        html += '<div class="branch-evidence"><small>Что уже известно</small>';
+        cat.evidence.forEach((fact) => { html += '<div class="evidence-chip"><i></i>' + escapeHtml(fact) + '</div>'; });
+        html += '</div>';
+      } else {
+        html += '<div class="branch-evidence unknown-box"><small>Пока нет данных</small>';
+        cat.prompts.slice(0, 2).forEach((prompt) => { html += '<div class="unknown-prompt">? ' + escapeHtml(prompt) + '</div>'; });
+        html += '</div>';
+      }
+      html += '<div class="cause-list">';
+      items.forEach((item, index) => {
+        html += '<div class="cause-item"><span class="tag ' + (item.status === 'fact' ? 'fact' : item.status === 'unknown' ? 'unknown' : 'hypothesis') + '">' + (item.status === 'fact' ? 'Факт' : item.status === 'unknown' ? 'Неизвестно' : 'Версия') + '</span><span>' + escapeHtml(item.text) + '</span><button type="button" data-remove-cause="' + cat.key + '" data-cause-index="' + index + '" aria-label="Удалить причину">×</button></div>';
+      });
+      html += '</div><div class="cause-entry"><input type="text" data-cause-input="' + cat.key + '" placeholder="Добавить возможную причину…"><select data-cause-status="' + cat.key + '"><option value="hypothesis">Предположение</option><option value="fact">Факт</option><option value="unknown">Неизвестно</option></select><button type="button" class="add-cause-button" data-add-cause="' + cat.key + '">+</button></div></article>';
+    });
+    html += '</div><div class="fishbone-problem"><span>ПРОБЛЕМА</span><strong>18 из 60 заказов выполнены с нарушением срока</strong></div></div>';
+    html += '<div class="fishbone-coach-note"><strong>Правило работы с диаграммой</strong><p>Факт может стать основанием для версии, но не доказывает причинную связь. Простои оборудования, задержки материалов и реалистичность сроков в исходных данных не установлены — оставьте их как вопросы для диагностики.</p></div>';
+    return html;
+  }
+
+  function renderIceStep() {
+    let html = '<div class="ice-intro"><div><div class="eyebrow">Приоритизация</div><h3>Что проверять первым?</h3><p>Оцените каждое направление по шкале от 1 до 5. Произведение помогает определить очередность проверки, но не доказывает, что причина истинная.</p></div><div class="ice-formula">ICE = I × C × E</div></div>';
+    html += '<div class="ice-table"><div class="ice-table-head"><span>Возможная причина</span><span>Impact</span><span>Confidence</span><span>Ease</span><span>ICE</span></div>';
+    iceVersions.forEach((version) => {
+      const values = ['I', 'C', 'E'].map((part) => numberValue('ice_' + version.key + '_' + part, ''));
+      const score = values.every((value) => value !== '') ? values.reduce((a, b) => a * b, 1) : '—';
+      html += '<div class="ice-row"><div class="ice-reason"><strong>' + escapeHtml(version.title) + '</strong></div>';
+      ['I', 'C', 'E'].forEach((part, index) => {
+        const current = values[index];
+        html += '<select data-field-key="ice_' + version.key + '_' + part + '" aria-label="' + part + ' для ' + escapeHtml(version.title) + '"><option value="">—</option>';
+        for (let n = 1; n <= 5; n++) html += '<option value="' + n + '" ' + (Number(current) === n ? 'selected' : '') + '>' + n + '</option>';
+        html += '</select>';
+      });
+      html += '<div class="ice-score" data-ice-score="' + version.key + '">' + score + '</div></div>';
+    });
+    html += '</div><div class="ice-explainer"><div><b>I · Impact</b><span>Насколько сильно направление может повлиять на проблему?</span></div><div><b>C · Confidence</b><span>Насколько убедительны основания для этой версии?</span></div><div><b>E · Ease</b><span>Насколько легко, быстро и безопасно её проверить?</span></div></div>';
+    html += '<div class="exercise-panel compact"><label for="ice_reason">Почему команда выбирает это направление первым?</label><textarea id="ice_reason" data-field-key="ice_reason" placeholder="Укажите балл и бизнес-обоснование выбора…">' + escapeHtml(textValue('ice_reason')) + '</textarea></div>';
+    return html;
+  }
+
+  function renderTextCard(key, title, hint, value, full) {
+    return '<article class="input-card ' + (full ? 'full' : '') + '"><label for="field_' + key + '">' + escapeHtml(title) + '</label><small>' + escapeHtml(hint) + '</small><textarea id="field_' + key + '" data-field-key="' + key + '" placeholder="Введите ответ команды…">' + escapeHtml(value) + '</textarea></article>';
+  }
+
+  function renderHypothesisStep() {
+    let html = '<div class="hypothesis-callout"><div class="eyebrow">Конструктор гипотезы</div><h3>Если — то — потому что</h3><p>Гипотеза о причине отвечает на вопрос «почему происходит проблема?». Гипотеза о решении — «какое действие может изменить результат?». Сейчас проектируем проверку решения.</p></div>';
+    html += '<div class="hypothesis-grid">';
+    html += renderTextCard('hypothesis_if', 'ЕСЛИ · Что конкретно изменяем?', 'Действие, процесс и ответственный.', textValue('hypothesis_if'), true);
+    html += renderTextCard('hypothesis_then', 'ТО · Какой результат ожидаем?', 'Метрика, baseline, целевое значение и срок.', textValue('hypothesis_then'), true);
+    html += renderTextCard('hypothesis_because', 'ПОТОМУ ЧТО · Почему это сработает?', 'Механизм, связывающий действие и результат.', textValue('hypothesis_because'), true);
+    html += renderTextCard('hypothesis_metric', 'Чем измерим?', 'Источник, выборка и период данных.', textValue('hypothesis_metric'), false);
+    html += renderTextCard('hypothesis_alternatives', 'Какие есть альтернативные объяснения?', 'Что ещё может повлиять на показатель?', textValue('hypothesis_alternatives'), false);
+    html += '</div>';
+    const ifText = textValue('hypothesis_if') || '[действие]';
+    const thenText = textValue('hypothesis_then') || '[ожидаемый результат]';
+    const becauseText = textValue('hypothesis_because') || '[механизм влияния]';
+    html += '<div class="hypothesis-preview"><small>Текущая формулировка команды</small><p>Если ' + escapeHtml(ifText) + ', то ' + escapeHtml(thenText) + ', потому что ' + escapeHtml(becauseText) + '.</p></div>';
+    html += '<div class="popper-panel"><div><span class="eyebrow">Краш-тест по Попперу</span><h3>Что должно опровергнуть гипотезу?</h3><p>Если любой результат можно объяснить так, будто гипотеза всё равно верна, это не проверка, а защита идеи.</p></div>' + renderTextCard('hypothesis_falsification', 'Условие опровержения', 'Какой результат заставит команду признать, что ожидание не сбылось?', textValue('hypothesis_falsification'), true) + '</div>';
+    return html;
+  }
+
+  function renderExperimentStep() {
+    let html = '<div class="mvt-intro"><div class="eyebrow">Safe-to-fail · MVT</div><h3>Минимальный тест вместо полного внедрения</h3><p>Проверьте ключевое предположение минимальными затратами. Не нужно разрабатывать новую систему или перестраивать весь процесс.</p></div>';
+    html += '<div class="experiment-layout"><div class="exercise-panel"><h3>Выберите методы проверки</h3><p class="muted">Бюджет команды — 80 условных единиц. Можно выбрать один метод или комбинацию.</p><div class="method-list">';
+    const selectedValue = rawValue('method_selection');
+    const selectedMethods = selectedValue && Array.isArray(selectedValue.methods) ? selectedValue.methods : [];
+    methods.forEach((method) => {
+      html += '<label class="method-option"><input type="checkbox" data-method="' + method.key + '" ' + (selectedMethods.includes(method.key) ? 'checked' : '') + '><span>' + escapeHtml(method.title) + '</span><b>' + method.cost + '</b></label>';
+    });
+    html += '</div><div class="budget-total"><span>Использовано бюджета</span><strong id="budgetTotal">0 / 80</strong></div><div id="budgetWarning" class="budget-warning hidden">Бюджет превышен. Пересмотрите комбинацию методов.</div></div>';
+    html += '<div class="exercise-panel"><h3>План безопасного эксперимента</h3>';
+    html += renderTextCard('experiment_scope', 'Где тестируем?', 'Участок, подразделение или смена.', textValue('experiment_scope'), false);
+    html += renderTextCard('experiment_sample', 'На какой выборке?', 'В учебном примере — следующие 20 сопоставимых заказов.', textValue('experiment_sample'), false);
+    html += renderTextCard('experiment_duration', 'Сколько длится тест?', 'В учебном примере — четыре недели.', textValue('experiment_duration'), false);
+    html += renderTextCard('experiment_action', 'Что именно делаем?', 'Например, 10-минутный разбор заказов с риском задержки и фиксация препятствия, ответственного и ближайшего шага.', textValue('experiment_action'), true);
+    html += renderTextCard('experiment_do_not_change', 'Что не меняем?', 'Технологию, режимы, обязательные процедуры, требования безопасности и качества.', textValue('experiment_do_not_change'), true);
+    html += renderTextCard('experiment_success', 'Критерии успеха', 'Какие пороги фиксируем до начала проверки?', textValue('experiment_success'), true);
+    html += renderTextCard('experiment_failure', 'Критерии неуспеха', 'При каком результате не масштабируем решение?', textValue('experiment_failure'), true);
+    html += renderTextCard('experiment_stop', 'Stop-критерии', 'При каком сигнале тест немедленно прекращается?', textValue('experiment_stop'), false);
+    html += renderTextCard('experiment_rollback', 'Rollback', 'Кто останавливает тест и как команда возвращается к исходному процессу?', textValue('experiment_rollback'), false);
+    html += renderTextCard('experiment_owner', 'Ответственные и согласующие', 'Владелец эксперимента, исполнитель и необходимые согласующие.', textValue('experiment_owner'), false);
+    html += '</div></div>';
+    html += '<div class="safe-note"><strong>Безопасность не является предметом эксперимента.</strong><span>Ни одна гипотеза не отменяет обязательные требования охраны труда, промышленной безопасности и качества. Фактический запуск в производстве требует согласований по правилам организации.</span></div>';
+    return html;
+  }
+
+  function bindCurrentStep() {
+    const content = $('stepContent');
+    content.querySelectorAll('[data-field-key]').forEach((el) => {
+      el.addEventListener('input', () => {
+        scheduleSave(el.dataset.fieldKey, el.value);
+        if (el.dataset.fieldKey.startsWith('hypothesis_')) updateHypothesisPreview();
+      });
+      el.addEventListener('change', () => {
+        scheduleSave(el.dataset.fieldKey, el.value);
+        updateIceScores();
+      });
+    });
+
+    content.querySelectorAll('input[name="problemChoice"]').forEach((el) => {
+      el.addEventListener('change', () => {
+        scheduleSave('problem_choice', el.value);
+        const cards = content.querySelectorAll('.choice-card');
+        cards.forEach((card) => card.classList.toggle('selected', card.querySelector('input').checked));
+      });
+    });
+
+    const checkButton = $('checkFactsButton');
+    if (checkButton) {
+      checkButton.addEventListener('click', () => {
+        scheduleSave('facts_checked', 'yes');
+        saveField('facts_checked').then(() => renderCurrentStep());
+      });
+    }
+
+    content.querySelectorAll('[data-add-cause]').forEach((button) => {
+      button.addEventListener('click', () => addCause(button.dataset.addCause));
+    });
+    content.querySelectorAll('[data-remove-cause]').forEach((button) => {
+      button.addEventListener('click', () => removeCause(button.dataset.removeCause, Number(button.dataset.causeIndex)));
+    });
+
+    content.querySelectorAll('[data-method]').forEach((el) => {
+      el.addEventListener('change', updateMethodSelection);
+    });
+    updateIceScores();
+    updateBudgetTotal();
+  }
+
+  function updateHypothesisPreview() {
+    const preview = $('stepContent').querySelector('.hypothesis-preview p');
+    if (!preview) return;
+    preview.textContent = 'Если ' + (textValue('hypothesis_if') || '[действие]') + ', то ' + (textValue('hypothesis_then') || '[ожидаемый результат]') + ', потому что ' + (textValue('hypothesis_because') || '[механизм влияния]') + '.';
+  }
+
+  function updateIceScores() {
+    iceVersions.forEach((version) => {
+      const vals = ['I', 'C', 'E'].map((part) => {
+        const el = $('stepContent').querySelector('[data-field-key="ice_' + version.key + '_' + part + '"]');
+        return el ? Number(el.value || 0) : Number(textValue('ice_' + version.key + '_' + part) || 0);
+      });
+      const target = $('stepContent').querySelector('[data-ice-score="' + version.key + '"]');
+      if (target) target.textContent = vals.every((n) => n > 0) ? String(vals.reduce((a, b) => a * b, 1)) : '—';
+    });
+  }
+
+  function addCause(category) {
+    const input = $('stepContent').querySelector('[data-cause-input="' + category + '"]');
+    const select = $('stepContent').querySelector('[data-cause-status="' + category + '"]');
+    const text = input ? input.value.trim() : '';
+    if (!text) {
+      if (input) input.focus();
+      return;
+    }
+    const current = rawValue('causes_' + category);
+    const items = current && Array.isArray(current.items) ? current.items.slice() : [];
+    items.push({ text, status: select ? select.value : 'hypothesis' });
+    scheduleSave('causes_' + category, { items });
+    renderCurrentStep();
+  }
+
+  function removeCause(category, index) {
+    const current = rawValue('causes_' + category);
+    const items = current && Array.isArray(current.items) ? current.items.slice() : [];
+    items.splice(index, 1);
+    scheduleSave('causes_' + category, { items });
+    renderCurrentStep();
+  }
+
+  function updateMethodSelection() {
+    const selected = Array.from($('stepContent').querySelectorAll('[data-method]:checked')).map((el) => el.dataset.method);
+    scheduleSave('method_selection', { methods: selected });
+    updateBudgetTotal();
+  }
+
+  function updateBudgetTotal() {
+    const target = $('budgetTotal');
+    if (!target) return;
+    const selected = Array.from($('stepContent').querySelectorAll('[data-method]:checked')).map((el) => el.dataset.method);
+    const total = methods.filter((method) => selected.includes(method.key)).reduce((sum, method) => sum + method.cost, 0);
+    target.textContent = total + ' / 80';
+    const warning = $('budgetWarning');
+    if (warning) warning.classList.toggle('hidden', total <= 80);
+  }
+
+  async function advanceStep() {
+    if (state.currentStep === 1 && !textValue('problem_choice')) {
+      window.alert('Сначала выберите, что является главной проблемой.');
+      return;
+    }
+    const flushed = await flushQueue();
+    if (!flushed) {
+      window.alert('Не удалось сохранить все изменения. Проверьте соединение и повторите попытку.');
+      return;
+    }
+    if (state.currentStep < steps.length) {
+      state.currentStep += 1;
+      state.maxStep = Math.max(state.maxStep, state.currentStep);
+      state.answers.set('flow_stage', String(state.maxStep));
+      state.saveQueue.set('flow_stage', String(state.maxStep));
+      setSaveState('Сохраняем этап…', 'pending');
+      const saved = await saveField('flow_stage');
+      if (!saved) {
+        window.alert('Этап не удалось сохранить. Проверьте соединение.');
+        return;
+      }
+      renderCurrentStep();
+    } else {
+      window.alert('План эксперимента подготовлен. Перед реальным запуском его необходимо согласовать в соответствии с правилами производства.');
+    }
+  }
+
+  async function switchTeam() {
+    const flushed = await flushQueue();
+    if (!flushed) {
+      window.alert('Не все изменения удалось сохранить. Попробуйте ещё раз.');
+      return;
+    }
+    stopRealtime();
+    state.team = null;
+    state.currentStep = 1;
+    state.maxStep = 1;
+    renderTeams();
+    showScreen('teamSelectionScreen');
   }
 
   function startRealtime() {
     if (!state.team) return;
     state.channel = state.client
-      .channel(`team-answers-${state.team.id}`)
+      .channel('team-answers-' + state.team.id)
       .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'team_answers', filter: `team_id=eq.${state.team.id}`
+        event: '*',
+        schema: 'public',
+        table: 'team_answers',
+        filter: 'team_id=eq.' + state.team.id
       }, (payload) => {
         const row = payload.new;
         if (!row || !row.field_key) return;
         const incoming = parseAnswer(row.answer);
         state.answers.set(row.field_key, incoming);
-        const field = document.querySelector(`[data-field-key="${CSS.escape(row.field_key)}"]`);
-        if (field && document.activeElement !== field && !state.saveQueue.has(row.field_key)) field.value = incoming;
+        if (row.field_key === 'flow_stage') {
+          const newMax = Math.min(steps.length, Math.max(1, Number(typeof incoming === 'string' ? incoming : incoming.text) || 1));
+          state.maxStep = Math.max(state.maxStep, newMax);
+          if (state.currentStep < newMax) {
+            state.currentStep = newMax;
+            renderCurrentStep();
+          } else {
+            renderStepper();
+          }
+          return;
+        }
+        const active = document.activeElement;
+        const isEditing = active && $('stepContent').contains(active);
+        if (!isEditing) renderCurrentStep();
       })
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') setConnection('Синхронизация активна');
+        if (status === 'SUBSCRIBED') setConnection('Командная синхронизация активна');
       });
   }
 
@@ -264,27 +672,11 @@
     }
   }
 
-  async function switchTeam() {
-    // Flush pending writes before switching to another room.
-    state.saveTimers.forEach((timer) => clearTimeout(timer));
-    state.saveTimers.clear();
-    const keys = [...state.saveQueue.keys()];
-    const results = await Promise.all(keys.map((key) => saveField(key)));
-    if (results.some((ok) => !ok) || state.saveQueue.size > 0) {
-      window.alert('Не все изменения удалось сохранить. Проверьте соединение и повторите попытку.');
-      return;
-    }
-    stopRealtime();
-    state.team = null;
-    renderTeams();
-    showScreen('teamSelectionScreen');
-  }
-
   async function init() {
     try {
       if (!window.supabase || !CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_PUBLISHABLE_KEY ||
           CONFIG.SUPABASE_URL.includes('ВСТАВЬТЕ') || CONFIG.SUPABASE_PUBLISHABLE_KEY.includes('ВСТАВЬТЕ')) {
-        throw new Error('Сначала заполните Project URL и Publishable key в файле config.js.');
+        throw new Error('Не заполнены параметры Supabase в config.js.');
       }
       state.client = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_PUBLISHABLE_KEY, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
@@ -292,8 +684,6 @@
       await ensureAnonymousSession();
       await loadWorkshop();
 
-      // Resume the last team selected by this anonymous browser session.
-      // Membership is stored in Supabase, not in browser storage.
       const { data: membership, error: membershipError } = await state.client
         .from('team_memberships')
         .select('team_id')
@@ -322,17 +712,19 @@
     }
   }
 
-  document.querySelectorAll('.tab').forEach((tab) => {
-    tab.addEventListener('click', () => activateTab(tab.dataset.target));
-  });
   $('switchTeamButton').addEventListener('click', switchTeam);
+  $('prevStepButton').addEventListener('click', () => {
+    if (state.currentStep > 1) {
+      state.currentStep -= 1;
+      renderCurrentStep();
+    }
+  });
+  $('nextStepButton').addEventListener('click', advanceStep);
   $('retryButton').addEventListener('click', () => {
     showScreen('loadingScreen');
     init();
   });
-  window.addEventListener('beforeunload', () => {
-    stopRealtime();
-  });
+  window.addEventListener('beforeunload', stopRealtime);
 
   init();
 })();
