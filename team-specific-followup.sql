@@ -194,14 +194,8 @@ begin
   on conflict (workshop_id, team_id)
   do update set
     results = excluded.results,
-    is_published = case
-      when p_publish then true
-      else stored.is_published
-    end,
-    published_at = case
-      when p_publish then now()
-      else stored.published_at
-    end,
+    is_published = excluded.is_published,
+    published_at = excluded.published_at,
     updated_by = auth.uid(),
     updated_at = now()
   returning * into v_row;
