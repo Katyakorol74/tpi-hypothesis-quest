@@ -553,3 +553,15 @@ textarea:focus,input[type=text]:focus,select:focus{border-color:var(--teal);box-
   .participant-ladder-grid{grid-template-columns:1fr}
   .participant-ladder-rung>p{min-height:0}
 }
+
+
+/* Distinguish stream archive from team archive */
+.trainer-workshop-archive-note{grid-column:1/-1;margin:0;padding-top:8px;color:#8a6c55;font-size:8px;line-height:1.5}
+.trainer-team-result-status.archived{background:#fff0eb;color:#a54b37}
+.trainer-team-result-card.team-is-archived{background:#f9fafb;border-style:dashed}
+.trainer-team-result-card-head .button{font-size:8px;padding:7px 10px;white-space:nowrap}
+.trainer-team-archived-note{margin-top:13px;padding:12px 13px;border-radius:9px;background:#fff7f2;color:#8a5c45;font-size:9px;line-height:1.6}
+.team-archive-empty{grid-column:1/-1;border:1px dashed #d9e3e7;border-radius:12px;padding:22px;background:#fff;text-align:center}
+.team-archive-empty strong{display:block;color:var(--navy);font-size:13px}
+.team-archive-empty p{max-width:500px;margin:7px auto 0;color:#74858f;font-size:10px;line-height:1.6}
+@media(max-width:700px){.trainer-team-result-card-head{flex-wrap:wrap}.trainer-team-result-card-head .button{width:100%}}
