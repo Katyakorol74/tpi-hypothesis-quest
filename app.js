@@ -53,29 +53,6 @@
     { key: 'manager_meetings', title: 'Ежедневные совещания', action: 'Проводить ежедневные совещания по статусам заказов.', question: 'Какой механизм улучшения предполагает руководитель?', hint: 'Почему частые встречи должны повлиять на сроки?' }
   ];
 
-  const ladderItems = [
-    { id: '01', text: 'За три месяца 18 из 60 заказов выполнены с нарушением срока.', correct: ['fact'], why: 'Это объективные числовые данные о заказах.' },
-    { id: '02', text: 'Руководитель обратил внимание на 8 случаев позднего обновления статуса из 20.', correct: ['selection'], why: 'Сам показатель 8 из 20 — факт. Но фокус руководителя именно на нём — отбор части данных.' },
-    { id: '03', text: 'Сотрудники не обновляют статусы, потому что безответственно относятся к работе.', correct: ['interpretation'], why: 'Факт позднего обновления соединён с оценочным объяснением поведения сотрудников.' },
-    { id: '04', text: 'Вероятно, сотрудники не понимают важность своевременной информации.', correct: ['assumption'], why: 'Это возможная версия мотивации сотрудников, которая пока не подтверждена.' },
-    { id: '05', text: 'Основная причина просрочек — недостаточная дисциплина.', correct: ['conclusion'], why: 'Это вывод о главной причине на основании ограниченного набора данных.' },
-    { id: '06', text: 'Без постоянного контроля сотрудники не соблюдают сроки.', correct: ['belief'], why: 'Это обобщённое убеждение о том, как сотрудники ведут себя без контроля.' },
-    { id: '07', text: 'Руководитель вводит ежедневные отчёты и персональные KPI.', correct: ['action'], why: 'Это управленческое действие, которое следует из сформированного вывода и убеждения.' },
-    { id: '08', text: 'После утверждения недельного плана поступило 12 срочных поручений.', correct: ['fact'], why: 'В кейсе указано конкретное количество срочных поручений.' },
-    { id: '09', text: 'Руководитель выделил позднее обновление статусов среди других факторов.', correct: ['selection'], why: 'Руководитель выбрал один фрагмент информации, оставив остальные факторы вне фокуса.' },
-    { id: '10', text: 'Сотрудники не справляются с нагрузкой, потому что не умеют расставлять приоритеты.', correct: ['interpretation', 'assumption'], why: 'Это объяснение нагрузки через предполагаемый дефицит навыка. В ключе допускается интерпретация/допущение — попросите команду объяснить логику.' }
-  ];
-
-    const ladderOptions = [
-    ['fact', 'Объективная реальность / факт'],
-    ['selection', 'Отбор информации'],
-    ['interpretation', 'Интерпретация'],
-    ['assumption', 'Допущение'],
-    ['conclusion', 'Вывод'],
-    ['belief', 'Убеждение'],
-    ['action', 'Действие']
-  ];
-
   const fishboneCategories = [
     { key: 'people', title: 'Люди и роли', en: 'MAN', evidence: ['Сотрудники одновременно работают над несколькими заказами.', 'Руководители смен иногда узнают о проблемах поздно.'], prompts: ['Кто отвечает за статус заказа?', 'Хватает ли времени и доступа к информации?', 'Понятно ли распределены роли и ответственность?'] },
     { key: 'processes', title: 'Методы и процессы', en: 'METHOD', evidence: ['Сотрудники отмечают частые изменения приоритетов.'], prompts: ['Как передаются заказы между участниками?', 'Есть ли порядок изменения приоритетов?', 'Как и когда эскалируются риски?'] },
@@ -828,7 +805,8 @@
       '3. ВОЗМОЖНЫЕ ПРИЧИНЫ И ИХ СТАТУС',
       causeList,
       '',
-      'Предположения за решениями руководителя:',
+      'Собственные допущения и ход мысли команды отражены на ступенях лестницы выше.',
+      'Отдельный анализ предположений за решениями руководителя:',
       managerAssumptions,
       'Общий список возможных причин команды: ' + reportValue('manager_possible_causes'),
       '',
@@ -1008,53 +986,94 @@
   }
 
     function renderFactsStep() {
-    const checked = textValue('facts_checked') === 'yes';
-    const answered = ladderItems.filter((item) => textValue('classify_' + item.id)).length;
-    const correctCount = ladderItems.filter((item) => {
-      const answer = textValue('classify_' + item.id);
-      return answer && item.correct.includes(answer);
-    }).length;
+    const problemOption = problemOptions.find((item) => item.value === textValue('problem_choice'));
+    const problemLabel = textValue('problem_choice') === 'custom'
+      ? (textValue('problem_custom') || 'Своя формулировка команды')
+      : (problemOption ? problemOption.title : 'Проблема не выбрана');
 
-    let html = '<div class="ladder-intro"><div class="ladder-stat"><strong>10</strong><span>утверждений</span></div><div><h3>Поднимитесь по лестнице умозаключений</h3><p>Разложите высказывания по ступеням. Сначала ответьте самостоятельно, затем нажмите «Проверить ответы». Неверные варианты подсветятся красным, верные — зелёным.</p></div></div>';
-    html += '<div class="classification-legend"><span>Объективная реальность</span><span>Отбор информации</span><span>Интерпретация</span><span>Допущение</span><span>Вывод</span><span>Убеждение</span><span>Действие</span></div>';
-    html += '<div class="ladder-list">';
-    ladderItems.forEach((item) => {
-      const selected = textValue('classify_' + item.id);
-      const correct = selected && item.correct.includes(selected);
-      const rowClass = checked ? (correct ? 'is-correct' : 'is-wrong') : '';
-      const chosenLabel = ladderOptions.find((pair) => pair[0] === selected);
-      const correctLabels = item.correct.map((value) => ladderOptions.find((pair) => pair[0] === value)?.[1] || value);
-      html += '<article class="ladder-card ' + rowClass + '"><div class="ladder-id">' + item.id + '</div><div class="ladder-statement">' + escapeHtml(item.text) + '</div><select data-field-key="classify_' + item.id + '" aria-label="Ступень высказывания" ' + (state.locked ? 'disabled' : '') + '><option value="">Выберите ступень…</option>';
-      ladderOptions.forEach(([value, label]) => {
-        html += '<option value="' + value + '" ' + (selected === value ? 'selected' : '') + '>' + escapeHtml(label) + '</option>';
-      });
-      html += '</select>';
-      if (checked) {
-        html += '<div class="ladder-feedback ' + (correct ? 'correct' : 'wrong') + '"><strong>' + (correct ? '✓ Верно' : '✕ Неверно') + '</strong><span>' + (correct ? 'Вы выбрали: ' + escapeHtml(chosenLabel ? chosenLabel[1] : '') : 'Правильный вариант: ' + escapeHtml(correctLabels.join(' / '))) + '</span><small>' + escapeHtml(item.why) + '</small></div>';
-      }
-      html += '</article>';
-    });
-    html += '</div>';
-    html += '<div class="check-panel"><div><strong>' + (checked ? 'Результат проверки' : 'Проверьте классификацию') + '</strong><p data-ladder-progress>' + (checked ? 'Верных ответов: ' + correctCount + ' из 10. Красные карточки требуют пересмотра.' : 'Выбрано: ' + answered + ' из 10. Для проверки заполните все строки.') + '</p></div><button class="button ' + (checked ? 'secondary' : 'primary') + '" id="checkFactsButton" ' + (answered < 10 || state.locked ? 'disabled' : '') + '>' + (checked ? 'Обновить проверку' : 'Проверить ответы') + '</button></div>';
-    html += '<div class="insight-strip"><strong>Важно:</strong> у одного высказывания могут быть две смысловые части. Для пункта 10 ключ допускает интерпретацию или допущение — команда должна объяснить свою логику.</div>';
-    html += '<section class="own-ladder-panel"><div class="exercise-kicker">Теперь вернитесь к собственной версии</div><h3>Спуститесь по лестнице назад</h3><p class="muted">Посмотрите на свою первую реакцию в начале кейса. Не переписывайте её задним числом — разберите, как вы пришли к этому решению.</p>';
-    html += '<div class="own-work-summary"><small>Первая версия причины</small><p>' + escapeHtml(textValue('team_initial_cause') || 'На первом этапе команда не записала причину.') + '</p><small>Первое предложенное действие</small><p>' + escapeHtml(textValue('team_initial_action') || 'На первом этапе команда не записала действие.') + '</p></div>';
-    html += '<div class="manager-assumptions-review"><div class="eyebrow">Ваши ответы на предыдущем этапе</div><h4>Какие предположения команда увидела за решениями руководителя?</h4><div class="manager-assumptions-grid">';
-    managerActions.forEach((action) => {
-      const answer = textValue(action.key);
-      html += '<div><small>' + escapeHtml(action.title) + '</small><p>' + escapeHtml(answer || 'Команда пока не записала предположение.') + '</p></div>';
-    });
-    html += '<div class="wide"><small>Собранные возможные причины</small><p>' + escapeHtml(textValue('manager_possible_causes') || 'Команда пока не собрала общий список причин.') + '</p></div></div></div>';
-    html += '<div class="hypothesis-grid">';
-    html += renderTextCard('own_ladder_fact', 'Какие факты действительно подтверждают вашу версию?', 'Отделите наблюдаемые данные от объяснения.', textValue('own_ladder_fact'), false);
-    html += renderTextCard('own_ladder_interpretation', 'Как вы интерпретировали эти факты?', 'Какой смысл или оценку вы добавили?', textValue('own_ladder_interpretation'), false);
-    html += renderTextCard('own_ladder_assumption', 'Какое допущение вы приняли?', 'Что сочли верным, не проверив?', textValue('own_ladder_assumption'), false);
-    html += renderTextCard('own_ladder_ignored', 'Какие данные могли упустить?', 'На что вы не обратили внимания, когда сформировали первую версию?', textValue('own_ladder_ignored'), false);
+    const firstCause = textValue('team_initial_cause');
+    const firstAction = textValue('team_initial_action');
+    const firstEvidence = textValue('team_initial_evidence');
+
+    let html = '<div class="ladder-intro"><div class="ladder-stat"><strong>7</strong><span>ступеней вашей мысли</span></div><div><h3>Поднимитесь по собственной лестнице умозаключений</h3><p>На этом этапе разбираем не логику руководителя, а то, как именно ваша команда пришла к первой версии проблемы и своему решению.</p></div></div>';
+
+    html += '<section class="own-ladder-panel"><div class="exercise-kicker">Материал для анализа · первая реакция команды</div><h3>С чего вы начали?</h3><div class="own-work-summary">';
+    html += '<small>Выбранная проблема</small><p>' + escapeHtml(problemLabel) + '</p>';
+    html += '<small>Ваша первая версия причины</small><p>' + escapeHtml(firstCause || 'Команда пока не записала причину.') + '</p>';
+    html += '<small>Ваше первое предложенное действие</small><p>' + escapeHtml(firstAction || 'Команда пока не записала действие.') + '</p>';
+    html += '<small>Факты, на которые вы опирались</small><p>' + escapeHtml(firstEvidence || 'Команда пока не записала исходные факты.') + '</p>';
     html += '</div></section>';
+
+    html += '<section class="participant-ladder"><div class="exercise-kicker">Разберите ход мысли команды</div><h3>Как вы перешли от фактов к действию?</h3><p class="muted">Заполняйте ступени, опираясь на собственную первую реакцию. Не подставляйте сюда предположения руководителя и не пытайтесь сделать свою первоначальную версию правильной задним числом.</p>';
+    html += '<div class="participant-ladder-grid">';
+
+    const rungs = [
+      {
+        number: '01',
+        title: 'Объективная реальность · факты',
+        description: 'Что вы действительно наблюдали или знали на момент первого решения? Здесь должны быть данные, а не объяснения.',
+        key: 'own_ladder_fact',
+        value: textValue('own_ladder_fact') || firstEvidence
+      },
+      {
+        number: '02',
+        title: 'Отбор информации',
+        description: 'На какой факт или часть ситуации вы обратили основное внимание? Что стало для вас самым заметным?',
+        key: 'own_ladder_selection',
+        value: textValue('own_ladder_selection')
+      },
+      {
+        number: '03',
+        title: 'Интерпретация',
+        description: 'Как вы объяснили выбранные факты? Какой смысл или оценку добавили?',
+        key: 'own_ladder_interpretation',
+        value: textValue('own_ladder_interpretation') || firstCause
+      },
+      {
+        number: '04',
+        title: 'Допущение',
+        description: 'Что вы посчитали верным, хотя ещё не проверили? Какое предположение могло повлиять на вашу версию?',
+        key: 'own_ladder_assumption',
+        value: textValue('own_ladder_assumption')
+      },
+      {
+        number: '05',
+        title: 'Вывод',
+        description: 'К какому заключению о причине проблемы вы пришли на основании своей интерпретации и допущения?',
+        key: 'own_ladder_conclusion',
+        value: textValue('own_ladder_conclusion')
+      },
+      {
+        number: '06',
+        title: 'Убеждение',
+        description: 'Какое более общее представление о людях, процессе или работе поддерживало ваш вывод?',
+        key: 'own_ladder_belief',
+        value: textValue('own_ladder_belief')
+      },
+      {
+        number: '07',
+        title: 'Действие',
+        description: 'Какое действие вы предложили в самом начале? Что теперь видите в его основании?',
+        key: 'own_ladder_action',
+        value: textValue('own_ladder_action') || firstAction
+      }
+    ];
+
+    rungs.forEach((rung) => {
+      html += '<article class="participant-ladder-rung"><div class="participant-rung-head"><span>' + rung.number + '</span><strong>' + escapeHtml(rung.title) + '</strong></div>';
+      html += '<p>' + escapeHtml(rung.description) + '</p>';
+      html += '<textarea data-field-key="' + rung.key + '" aria-label="' + escapeHtml(rung.title) + '" placeholder="Запишите мысль вашей команды…"' + (state.locked ? ' disabled' : '') + '>' + escapeHtml(rung.value || '') + '</textarea></article>';
+    });
+
+    html += '</div>';
+    html += '<div class="participant-ladder-reflection">';
+    html += renderTextCard('own_ladder_ignored', 'Какие данные вы могли упустить?', 'Что не попало в поле зрения команды, когда вы сформировали первую версию?', textValue('own_ladder_ignored'), true);
+    html += '</div></section>';
+    html += '<div class="insight-strip"><strong>Важно:</strong> это не тест с заранее заданными правильными ответами. Здесь нужно честно восстановить собственную цепочку рассуждений команды. На следующем этапе вы сможете вынести свои версии причин на диаграмму Исикавы и проверить их.</div>';
     return html;
   }
 
-    function makeCauseId() {
+  function makeCauseId() {
     return window.crypto && typeof window.crypto.randomUUID === 'function'
       ? window.crypto.randomUUID()
       : 'cause-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
@@ -1096,10 +1115,15 @@
   function collectPriorVersions() {
     const entries = [
       { key: 'team_initial_cause', title: 'Первая версия причины команды', text: textValue('team_initial_cause') },
-      { key: 'manager_possible_causes', title: 'Возможные причины за решениями руководителя', text: textValue('manager_possible_causes') },
-      { key: 'own_ladder_interpretation', title: 'Интерпретация команды', text: textValue('own_ladder_interpretation') },
+      { key: 'own_ladder_fact', title: 'Факты, на которые опиралась команда', text: textValue('own_ladder_fact') || textValue('team_initial_evidence') },
+      { key: 'own_ladder_selection', title: 'Отбор информации командой', text: textValue('own_ladder_selection') },
+      { key: 'own_ladder_interpretation', title: 'Интерпретация команды', text: textValue('own_ladder_interpretation') || textValue('team_initial_cause') },
       { key: 'own_ladder_assumption', title: 'Допущение команды', text: textValue('own_ladder_assumption') },
-      { key: 'own_ladder_ignored', title: 'Данные, которые команда могла упустить', text: textValue('own_ladder_ignored') }
+      { key: 'own_ladder_conclusion', title: 'Вывод команды', text: textValue('own_ladder_conclusion') },
+      { key: 'own_ladder_belief', title: 'Убеждение команды', text: textValue('own_ladder_belief') },
+      { key: 'own_ladder_action', title: 'Первоначальное действие команды', text: textValue('own_ladder_action') || textValue('team_initial_action') },
+      { key: 'own_ladder_ignored', title: 'Данные, которые команда могла упустить', text: textValue('own_ladder_ignored') },
+      { key: 'manager_possible_causes', title: 'Отдельно: возможные причины за решениями руководителя', text: textValue('manager_possible_causes') }
     ];
     managerActions.forEach((action) => {
       entries.push({ key: action.key, title: 'Предположение за решением «' + action.title + '»', text: textValue(action.key) });
@@ -1312,21 +1336,6 @@
     return html;
   }
 
-  function updateLadderCheckButton() {
-    const content = $('stepContent');
-    const button = content.querySelector('#checkFactsButton');
-    if (!button) return;
-
-    const answered = ladderItems.filter((item) => textValue('classify_' + item.id) !== '').length;
-    button.disabled = answered < ladderItems.length || state.locked;
-
-    const progress = content.querySelector('[data-ladder-progress]');
-    if (progress && textValue('facts_checked') !== 'yes') {
-      progress.textContent = 'Выбрано: ' + answered + ' из ' + ladderItems.length +
-        (answered < ladderItems.length ? '. Заполните оставшиеся строки.' : '. Можно проверить ответы.');
-    }
-  }
-
   function bindCurrentStep() {
     const content = $('stepContent');
     content.querySelectorAll('[data-field-key]').forEach((el) => {
@@ -1337,7 +1346,6 @@
       el.addEventListener('change', () => {
         scheduleSave(el.dataset.fieldKey, el.value);
         updateIceScores();
-        if (el.dataset.fieldKey.startsWith('classify_')) updateLadderCheckButton();
         if (el.dataset.fieldKey === 'followup_decision') renderCurrentStep();
       });
     });
@@ -1364,27 +1372,6 @@
         }
       });
     });
-
-    const checkButton = $('checkFactsButton');
-    if (checkButton) {
-      checkButton.addEventListener('click', async () => {
-        if (state.locked) return;
-        const answered = ladderItems.filter((item) => textValue('classify_' + item.id) !== '').length;
-        if (answered < ladderItems.length) {
-          updateLadderCheckButton();
-          return;
-        }
-        scheduleSave('facts_checked', 'yes');
-        const saved = await flushQueue();
-        if (saved) {
-          renderCurrentStep();
-        } else {
-          scheduleSave('facts_checked', 'no');
-          window.alert('Не удалось сохранить все ответы. Проверьте соединение и повторите проверку.');
-          updateLadderCheckButton();
-        }
-      });
-    }
 
     content.querySelectorAll('[data-add-cause]').forEach((button) => {
       button.addEventListener('click', () => addCause(button.dataset.addCause));
@@ -1476,6 +1463,21 @@
         (textValue('problem_choice') === 'custom' && !textValue('problem_custom').trim()))) {
       window.alert('Выберите или сформулируйте главную проблему.');
       return;
+    }
+    if (state.currentStep === 3) {
+      const requiredRungs = [
+        ['own_ladder_selection', 'отбор информации'],
+        ['own_ladder_interpretation', 'интерпретацию'],
+        ['own_ladder_assumption', 'допущение'],
+        ['own_ladder_conclusion', 'вывод'],
+        ['own_ladder_belief', 'убеждение']
+      ];
+      const missingRungs = requiredRungs.filter(([key]) => !textValue(key).trim());
+      if (missingRungs.length) {
+        window.alert('Чтобы восстановить собственную цепочку рассуждений, заполните: ' +
+          missingRungs.map((item) => item[1]).join(', ') + '.');
+        return;
+      }
     }
     if (state.currentStep === 5) {
       const selectedId = textValue('ice_primary_cause_id');
