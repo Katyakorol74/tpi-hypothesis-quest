@@ -474,6 +474,17 @@
     });
   }
 
+  function renderTextCard(fieldKey, title, description, value, fullWidth = false) {
+    const fieldId = 'answer_' + String(fieldKey).replace(/[^a-zA-Z0-9_-]/g, '_');
+    return '<div class="input-card' + (fullWidth ? ' full' : '') + '">' +
+      '<label for="' + escapeHtml(fieldId) + '">' + escapeHtml(title) + '</label>' +
+      '<small>' + escapeHtml(description) + '</small>' +
+      '<textarea id="' + escapeHtml(fieldId) + '" data-field-key="' + escapeHtml(fieldKey) +
+        '" aria-label="' + escapeHtml(title) + '" placeholder="Запишите ответ команды…"' +
+        (state.locked ? ' disabled' : '') + '>' + escapeHtml(value || '') + '</textarea>' +
+    '</div>';
+  }
+
   function renderCurrentStep() {
     const step = steps[state.currentStep - 1];
     $('stepTitle').textContent = step.title;
