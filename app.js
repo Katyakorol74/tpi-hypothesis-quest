@@ -14,6 +14,9 @@
     locked: false,
     isTrainer: false,
     trainerWorkshops: [],
+    followupPublished: false,
+    followupPublishedAt: null,
+    followupResults: null,
     channel: null,
     saveTimers: new Map(),
     saveQueue: new Map(),
@@ -29,7 +32,9 @@
     { title: 'Диаграмма Исикавы', description: 'Перенесите известные факты в систему причин и добавьте версии, которые предстоит проверить.' },
     { title: 'Приоритизация ICE', description: 'Выберите, какое направление разумнее исследовать первым.' },
     { title: 'Формулировка гипотезы', description: 'Превратите выбранное направление в проверяемую гипотезу о решении.' },
-    { title: 'MVT и безопасный тест', description: 'Спроектируйте минимальную проверку и заранее зафиксируйте критерии.' }
+    { title: 'MVT и безопасный тест', description: 'Спроектируйте минимальную проверку и заранее зафиксируйте критерии.' },
+    { title: 'Через месяц: результаты и решение', description: 'Сравните результаты с критериями, сформулируйте инсайт и выберите следующий шаг.' },
+    { title: 'Паспорт гипотезы и спич руководству', description: 'Получите готовый документ и короткое обоснование решения, собранные из ответов команды.' }
   ];
 
   const problemOptions = [
@@ -159,6 +164,7 @@
     if (fieldKey.startsWith('cause_') || fieldKey.startsWith('causes_')) return 'ishikawa';
     if (fieldKey.startsWith('ice_')) return 'ice';
     if (fieldKey.startsWith('hypothesis_')) return 'hypothesis';
+    if (fieldKey.startsWith('followup_') || fieldKey.startsWith('hadi_')) return 'monthly_followup';
     if (fieldKey === 'method_selection') return 'mvt';
     if (fieldKey.startsWith('experiment_')) return 'experiment';
     return 'general';
@@ -288,12 +294,25 @@
     state.currentStep = state.maxStep;
   }
 
+  async function loadMonthlyResults() {
+    const { data, error } = await state.client.rpc('get_monthly_results', {
+      p_join_code: state.workshopCode
+    });
+    if (error) throw error;
+    state.followupPublished = Boolean(data && data.published);
+    state.followupPublishedAt = data && data.published_at ? data.published_at : null;
+    state.followupResults = state.followupPublished && data ? data.results : null;
+  }
+
   async function openWorkspace() {
     stopRealtime();
     state.saveTimers.forEach((timer) => clearTimeout(timer));
     state.saveTimers.clear();
     state.saveQueue.clear();
     await loadAnswers();
+    await loadMonthlyResults();
+    state.maxStep = state.followupPublished ? Math.max(state.maxStep, 8) : Math.min(state.maxStep, 7);
+    state.currentStep = state.maxStep;
     $('workspaceTitle').textContent = state.team.name;
     $('workspaceSubtitle').textContent = state.workshop.name;
     $('lockedBanner').classList.toggle('hidden', !state.locked);
@@ -359,6 +378,7 @@
       const locked = workshop.status === 'locked';
       const label = archived ? 'В архиве' : (locked ? 'Результаты зафиксированы' : 'Активный поток');
       const date = workshop.created_at ? new Date(workshop.created_at).toLocaleString('ru-RU') : '';
+      const followupLabel = workshop.followup_published ? 'Месячный этап открыт' : 'Месячный этап закрыт';
       return '<article class="trainer-workshop-card">' +
         '<div class="trainer-workshop-main">' +
           '<div class="trainer-workshop-title"><h3>' + escapeHtml(workshop.name || 'Без названия') + '</h3><span class="trainer-status-pill ' + (archived ? 'archived' : locked ? 'locked' : 'active') + '">' + label + '</span></div>' +
@@ -366,6 +386,8 @@
         '</div>' +
         '<div class="trainer-workshop-actions">' +
           '<button type="button" class="button secondary" data-trainer-action="copy" data-workshop-code="' + escapeHtml(workshop.join_code || '') + '">Ссылка потока</button>' +
+          '<span class="trainer-followup-state">' + followupLabel + '</span>' +
+          (!archived && !workshop.followup_published ? '<button type="button" class="button primary" data-trainer-action="publish-monthly" data-workshop-id="' + escapeHtml(workshop.id) + '">Открыть этап через месяц</button>' : '') +
           (archived
             ? '<button type="button" class="button secondary" data-trainer-action="restore" data-workshop-id="' + escapeHtml(workshop.id) + '">Вернуть из архива</button>'
             : '<button type="button" class="button secondary" data-trainer-action="archive" data-workshop-id="' + escapeHtml(workshop.id) + '">Архивировать</button>' +
@@ -418,6 +440,9 @@
     } else if (action === 'reset') {
       if (!window.confirm('Сбросить весь прогресс потока «' + workshop.name + '»? Будут удалены ответы всех команд, индивидуальные ответы, сохранённый итоговый снимок и привязки участников. Сами команды и код потока сохранятся. Действие нельзя отменить.')) return;
       rpcName = 'trainer_reset_workshop';
+    } else if (action === 'publish-monthly') {
+      if (!window.confirm('Опубликовать результаты месячной проверки для всех команд потока «' + workshop.name + '»? Все команды увидят результаты учебного кейса и смогут принять решение и пройти новый HADI-цикл.')) return;
+      rpcName = 'trainer_publish_monthly_results';
     } else {
       return;
     }
@@ -432,7 +457,9 @@
         ? 'Прогресс выбранного потока сброшен. Поток снова открыт.'
         : action === 'archive'
           ? 'Поток перемещён в архив. Результаты сохранены.'
-          : 'Поток восстановлен из архива.';
+          : action === 'restore'
+            ? 'Поток восстановлен из архива.'
+            : 'Месячный этап опубликован для всех команд потока.';
     } catch (error) {
       console.error('Trainer action error:', error);
       $('trainerStatus').textContent = error.message || 'Не удалось выполнить действие.';
@@ -485,6 +512,198 @@
     '</div>';
   }
 
+
+  function renderMonthlyFollowupStep() {
+    if (!state.followupPublished || !state.followupResults) {
+      return '<div class="monthly-waiting"><div class="eyebrow">Возвращение через месяц</div><h3>Результаты пока не опубликованы</h3><p>Тренер откроет этот этап после сбора результатов месячной проверки. Все предыдущие ответы команды сохранятся.</p></div>';
+    }
+    const results = state.followupResults;
+    const before = results.baseline || {};
+    const after = results.after || {};
+    const targets = results.targets || {};
+    const decision = textValue('followup_decision');
+    const repeatChosen = decision === 'repeat_refine' || decision === 'repeat_same';
+    const publishedDate = state.followupPublishedAt ? new Date(state.followupPublishedAt).toLocaleDateString('ru-RU') : '';
+    const rows = [
+      ['Просрочки заказов', before.late_orders_count + ' из ' + before.orders_count + ' (' + before.late_orders_percent + '%)', after.late_orders_count + ' из ' + after.orders_count + ' (' + after.late_orders_percent + '%)', 'не более ' + targets.late_orders_percent_max + '%', Number(after.late_orders_percent) <= Number(targets.late_orders_percent_max) ? 'Выполнен' : 'Не выполнен'],
+      ['Поздние обновления статусов', before.late_status_count + ' из ' + before.late_status_total + ' (' + before.late_status_percent + '%)', after.late_status_count + ' из ' + after.late_status_total + ' (' + after.late_status_percent + '%)', 'не более ' + targets.late_status_percent_max + '%', Number(after.late_status_percent) <= Number(targets.late_status_percent_max) ? 'Выполнен' : 'Не выполнен'],
+      ['Срочные поручения', String(before.urgent_requests), String(after.urgent_requests), 'Отслеживать отдельно', 'Возможный внешний фактор'],
+      ['Среднее время выполнения', '—', '−' + Math.abs(Number(after.average_processing_time_change_percent || 0)) + '%', 'Наблюдать динамику', 'Улучшение'],
+      ['Дополнительная нагрузка руководителя', '—', '+' + after.manager_extra_minutes_per_day + ' минут в день', 'не более ' + targets.manager_extra_minutes_per_day_max + ' минут в день', Number(after.manager_extra_minutes_per_day) <= Number(targets.manager_extra_minutes_per_day_max) ? 'Выполнен' : 'Не выполнен'],
+      ['Удобство для сотрудников', before.employee_convenience + '/5', after.employee_convenience + '/5', 'Не должно ухудшиться', Number(after.employee_convenience) >= Number(before.employee_convenience) ? 'Выполнен' : 'Ухудшилось'],
+      ['Нарушения безопасности и качества', '—', String(after.safety_quality_violations), '0', Number(after.safety_quality_violations) <= Number(targets.safety_quality_violations_max) ? 'Выполнен' : 'Не выполнен']
+    ];
+    let html = '<div class="monthly-intro"><div><div class="eyebrow">Возвращение к проекту · ' + escapeHtml(publishedDate) + '</div><h3>Прошёл месяц. Что показал эксперимент?</h3><p>Сопоставьте фактические данные с критериями, которые вы задали до теста. Не оценивайте эксперимент по одной удачной метрике.</p></div><span class="monthly-published-mark">Результаты опубликованы</span></div>';
+    html += '<div class="monthly-results-table-wrap"><table class="monthly-results-table"><thead><tr><th>Показатель</th><th>До теста</th><th>После теста</th><th>Критерий</th><th>Оценка</th></tr></thead><tbody>';
+    rows.forEach((row) => {
+      const statusClass = row[4] === 'Выполнен' || row[4] === 'Улучшение' ? 'result-good' :
+        row[4] === 'Не выполнен' || row[4] === 'Ухудшилось' ? 'result-bad' : 'result-neutral';
+      html += '<tr><th>' + escapeHtml(row[0]) + '</th><td>' + escapeHtml(row[1]) + '</td><td><strong>' + escapeHtml(row[2]) + '</strong></td><td>' + escapeHtml(row[3]) + '</td><td><span class="result-pill ' + statusClass + '">' + escapeHtml(row[4]) + '</span></td></tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<div class="monthly-insight-grid"><article><small>Что улучшилось</small><strong>Поздние статусы: 40% → 15%</strong><p>Промежуточный показатель достиг цели не более 20%.</p></article><article><small>Что не достигло цели</small><strong>Просрочки: 35% → 30%</strong><p>Целевой уровень не более 25% не достигнут. Дополнительная нагрузка составила 25 минут при лимите 15 минут в день.</p></article><article><small>Что могло повлиять извне</small><strong>Срочных поручений стало меньше: 12 → 5</strong><p>Часть изменений могла быть вызвана внешними обстоятельствами, а не только вашим решением.</p></article></div>';
+    html += '<div class="monthly-caution"><strong>Ограничения эксперимента</strong><ul>';
+    (results.limitations || []).forEach((item) => { html += '<li>' + escapeHtml(item) + '</li>'; });
+    html += '</ul><p>' + escapeHtml(results.trainer_conclusion || '') + '</p></div>';
+    html += '<section class="monthly-decision"><div class="eyebrow">Решение команды</div><h3>Что делаем дальше?</h3><p>В учебном кейсе наиболее обоснован вариант «Доработать и повторить ограниченный тест»: промежуточный показатель улучшился, но основной критерий и ограничение по нагрузке не выполнены. Повтор должен проверять уточнённую гипотезу, а не просто воспроизводить первый тест.</p>';
+    html += '<label class="monthly-select-label" for="followupDecision">Наше решение</label><select id="followupDecision" data-field-key="followup_decision" ' + (state.locked ? 'disabled' : '') + '><option value="">Выберите решение…</option>';
+    [
+      ['repeat_refine','Доработать и повторить ограниченный тест — рекомендуемый вариант'],
+      ['repeat_same','Повторить тест без изменений'],
+      ['scale','Масштабировать текущее решение'],
+      ['stop','Отказаться от текущего решения']
+    ].forEach(([value,label]) => { html += '<option value="' + value + '" ' + (decision === value ? 'selected' : '') + '>' + escapeHtml(label) + '</option>'; });
+    html += '</select>';
+    html += renderTextCard('followup_decision_reason', 'Почему команда принимает это решение?', 'Опирайтесь на метрики, критерии успеха, побочные эффекты и ограничения данных.', textValue('followup_decision_reason'), true);
+    if (repeatChosen) {
+      html += '<div class="hadi-cycle-panel"><div class="hadi-cycle-heading"><div class="eyebrow">Следующая итерация · HADI</div><h3>Запустите новый цикл на основе инсайта</h3><p>Не повторяйте старую гипотезу автоматически. Сначала уточните, чему научил первый тест, затем сформулируйте новую проверку.</p></div><div class="hadi-cycle-flow"><span><b>H</b> Hypothesis</span><i>→</i><span><b>A</b> Action</span><i>→</i><span><b>D</b> Data</span><i>→</i><span><b>I</b> Insight</span><i>↺</i></div><div class="hadi-fields">';
+      html += renderTextCard('hadi_hypothesis', 'H · Новая гипотеза', 'Какое уточнённое предположение проверим в следующем цикле?', textValue('hadi_hypothesis'), true);
+      html += renderTextCard('hadi_action', 'A · Действие', 'Какой небольшой и безопасный повторный тест проведём? Что изменим по сравнению с первой версией?', textValue('hadi_action'), true);
+      html += renderTextCard('hadi_data', 'D · Данные', 'Что будем собирать: основной показатель, промежуточные метрики, нагрузку, срочные поручения, качество и безопасность?', textValue('hadi_data'), true);
+      html += renderTextCard('hadi_insight', 'I · Инсайт', 'Что результаты первого цикла уже рассказали о системе? Какое новое понимание легло в основу следующей гипотезы?', textValue('hadi_insight'), true);
+      html += '</div></div>';
+    } else if (decision) {
+      html += '<div class="monthly-decision-note">При выбранном решении HADI-повтор не формируется. Зафиксируйте обоснование и условия, при которых решение можно будет пересмотреть.</div>';
+    }
+    html += '</section>';
+    return html;
+  }
+
+  function selectedCauseForReport() {
+    return collectCauseItems().find((item) => item.id === textValue('ice_primary_cause_id'));
+  }
+
+  function reportValue(key) {
+    return textValue(key).trim() || 'Не указано';
+  }
+
+  function selectedMethodNames() {
+    const selection = rawValue('method_selection');
+    const chosen = selection && Array.isArray(selection.methods) ? selection.methods : [];
+    return methods.filter((item) => chosen.includes(item.key)).map((item) => item.title);
+  }
+
+  function decisionLabel() {
+    return ({
+      repeat_refine: 'Доработать и повторить ограниченный тест',
+      repeat_same: 'Повторить тест без изменений',
+      scale: 'Масштабировать текущее решение',
+      stop: 'Отказаться от текущего решения'
+    })[textValue('followup_decision')] || 'Решение не выбрано';
+  }
+
+  function buildPassportText() {
+    const cause = selectedCauseForReport();
+    const ratings = rawValue('ice_ratings') && typeof rawValue('ice_ratings') === 'object' ? rawValue('ice_ratings') : {};
+    const score = cause && ratings[cause.id] ? ['I','C','E'].map((part) => Number(ratings[cause.id][part] || 0)) : [];
+    const iceScore = score.length && score.every((value) => value > 0) ? score.reduce((total, value) => total * value, 1) : 'Не рассчитан';
+    const problemChoice = problemOptions.find((item) => item.value === textValue('problem_choice'));
+    const problem = textValue('problem_choice') === 'custom' ? reportValue('problem_custom') :
+      (problemChoice ? problemChoice.title : 'Нарушение сроков выполнения заказов');
+    const result = state.followupResults || {};
+    const before = result.baseline || {};
+    const after = result.after || {};
+    const methodsList = selectedMethodNames();
+    const repeatChosen = ['repeat_refine','repeat_same'].includes(textValue('followup_decision'));
+    const lines = [
+      'ПАСПОРТ ГИПОТЕЗЫ',
+      'Поток: ' + (state.workshop ? state.workshop.name : 'Не указано'),
+      'Команда: ' + (state.team ? state.team.name : 'Не указано'),
+      '',
+      '1. ПРОБЛЕМА',
+      problem,
+      '',
+      '2. ФАКТЫ И ИСХОДНАЯ ТОЧКА',
+      'Просрочки: ' + before.late_orders_count + ' из ' + before.orders_count + ' (' + before.late_orders_percent + '%).',
+      'Поздние статусы: ' + before.late_status_count + ' из ' + before.late_status_total + ' (' + before.late_status_percent + '%).',
+      'Срочные поручения: ' + before.urgent_requests + '.',
+      'Факты, на которые опиралась команда: ' + reportValue('team_initial_evidence'),
+      '',
+      '3. ВЫБРАННОЕ НАПРАВЛЕНИЕ',
+      cause ? cause.text : 'Причина не выбрана.',
+      'ICE: ' + iceScore + (score.length ? ' (I=' + score[0] + ', C=' + score[1] + ', E=' + score[2] + ')' : ''),
+      'Обоснование выбора: ' + reportValue('ice_reason'),
+      '',
+      '4. ГИПОТЕЗА',
+      'Если ' + reportValue('hypothesis_if') + ', то ' + reportValue('hypothesis_then') + ', потому что ' + reportValue('hypothesis_because') + '.',
+      'Метрика: ' + reportValue('hypothesis_metric'),
+      'Альтернативные объяснения: ' + reportValue('hypothesis_alternatives'),
+      'Условие опровержения: ' + reportValue('hypothesis_falsification'),
+      '',
+      '5. ПЛАН ПЕРВОГО ЭКСПЕРИМЕНТА',
+      'Методы: ' + (methodsList.length ? methodsList.join(', ') : 'Не указано'),
+      'Масштаб: ' + reportValue('experiment_scope'),
+      'Выборка: ' + reportValue('experiment_sample'),
+      'Длительность: ' + reportValue('experiment_duration'),
+      'Действие: ' + reportValue('experiment_action'),
+      'Что не меняем: ' + reportValue('experiment_do_not_change'),
+      'Критерии успеха: ' + reportValue('experiment_success'),
+      'Критерии неуспеха: ' + reportValue('experiment_failure'),
+      'Stop-критерии: ' + reportValue('experiment_stop'),
+      'Rollback: ' + reportValue('experiment_rollback'),
+      'Ответственные: ' + reportValue('experiment_owner'),
+      '',
+      '6. РЕЗУЛЬТАТЫ МЕСЯЧНОЙ ПРОВЕРКИ',
+      'Просрочки: ' + before.late_orders_percent + '% → ' + after.late_orders_percent + '% (цель ≤25%).',
+      'Поздние статусы: ' + before.late_status_percent + '% → ' + after.late_status_percent + '% (цель ≤20%).',
+      'Срочные поручения: ' + before.urgent_requests + ' → ' + after.urgent_requests + '.',
+      'Среднее время выполнения: −' + Math.abs(Number(after.average_processing_time_change_percent || 0)) + '%.',
+      'Дополнительная нагрузка руководителя: +' + after.manager_extra_minutes_per_day + ' минут/день (лимит ≤15).',
+      'Удобство для сотрудников: ' + before.employee_convenience + '/5 → ' + after.employee_convenience + '/5.',
+      'Нарушения безопасности и качества: ' + after.safety_quality_violations + '.',
+      '',
+      '7. РЕШЕНИЕ И СЛЕДУЮЩИЙ ШАГ',
+      decisionLabel(),
+      'Обоснование: ' + reportValue('followup_decision_reason'),
+      repeatChosen ? 'H · Новая гипотеза: ' + reportValue('hadi_hypothesis') : 'HADI-повтор не выбран.',
+      repeatChosen ? 'A · Действие: ' + reportValue('hadi_action') : '',
+      repeatChosen ? 'D · Данные: ' + reportValue('hadi_data') : '',
+      repeatChosen ? 'I · Инсайт: ' + reportValue('hadi_insight') : '',
+      '',
+      'Ограничения: выборка 20 заказов; контрольной группы нет; число срочных поручений изменилось и является возможным альтернативным объяснением.'
+    ];
+    return lines.filter((line,index) => line !== '' || lines[index - 1] !== '').join('\n');
+  }
+
+  function buildManagementPitch() {
+    const cause = selectedCauseForReport();
+    const result = state.followupResults || {};
+    const before = result.baseline || {};
+    const after = result.after || {};
+    const repeatChosen = ['repeat_refine','repeat_same'].includes(textValue('followup_decision'));
+    const problemChoice = problemOptions.find((item) => item.value === textValue('problem_choice'));
+    const problem = textValue('problem_choice') === 'custom' ? reportValue('problem_custom') :
+      (problemChoice ? problemChoice.title : 'Нарушение сроков выполнения заказов');
+    return [
+      'СПИЧ ДЛЯ РУКОВОДСТВА · 60–90 СЕКУНД',
+      '',
+      'Мы исследовали проблему: ' + problem + '.',
+      'В качестве приоритетного направления команда выбрала: ' + (cause ? cause.text : 'направление не зафиксировано') + '.',
+      'Наша гипотеза: если ' + reportValue('hypothesis_if') + ', то ' + reportValue('hypothesis_then') + ', потому что ' + reportValue('hypothesis_because') + '.',
+      'Для проверки мы спроектировали ограниченный тест: ' + reportValue('experiment_action') + '.',
+      '',
+      'Через месяц доля просрочек изменилась с ' + before.late_orders_percent + '% до ' + after.late_orders_percent + '% при цели не более 25%; поздние статусы улучшились с ' + before.late_status_percent + '% до ' + after.late_status_percent + '%; дополнительная нагрузка руководителя составила плюс ' + after.manager_extra_minutes_per_day + ' минут в день при лимите 15 минут.',
+      'Одновременно число срочных поручений сократилось с ' + before.urgent_requests + ' до ' + after.urgent_requests + ', поэтому нельзя приписать изменение показателей только эксперименту. Выборка составила 20 заказов, контрольной группы не было.',
+      '',
+      'Решение команды: ' + decisionLabel() + '.',
+      'Обоснование: ' + reportValue('followup_decision_reason') + '.',
+      repeatChosen ? 'Следующий шаг: ' + reportValue('hadi_action') + '. Новый цикл HADI — гипотеза: ' + reportValue('hadi_hypothesis') + '; собираемые данные: ' + reportValue('hadi_data') + '; инсайт: ' + reportValue('hadi_insight') + '.' : 'Следующий шаг: ' + decisionLabel() + '.',
+      '',
+      'Решение о масштабировании предлагаем принимать только после проверки уточнённой версии на достаточной выборке и без ухудшения безопасности и качества.'
+    ].join('\n');
+  }
+
+  function renderPassportStep() {
+    const repeatChosen = ['repeat_refine','repeat_same'].includes(textValue('followup_decision'));
+    let html = '<div class="passport-intro"><div class="eyebrow">Итоговый артефакт команды</div><h3>Паспорт и спич собраны из вашей работы</h3><p>Документы обновляются автоматически из выбранной проблемы, Исикавы, ICE, гипотезы, плана теста, месячных результатов и решения команды. Проверьте формулировки перед передачей руководству.</p></div>';
+    html += '<section class="generated-document"><div class="generated-document-head"><div><div class="eyebrow">1-page</div><h3>Паспорт гипотезы</h3></div><button class="button secondary" type="button" data-copy-output="passportGenerated">Скопировать паспорт</button></div><pre id="passportGenerated">' + escapeHtml(buildPassportText()) + '</pre></section>';
+    html += '<section class="generated-document pitch-document"><div class="generated-document-head"><div><div class="eyebrow">60–90 секунд</div><h3>Спич для руководства</h3></div><button class="button primary" type="button" data-copy-output="pitchGenerated">Скопировать спич</button></div><pre id="pitchGenerated">' + escapeHtml(buildManagementPitch()) + '</pre></section>';
+    html += '<div class="passport-footer-note">' + (repeatChosen
+      ? 'Команда зафиксировала переход в следующий HADI-цикл. Паспорт отражает и результаты первого теста, и план повторной проверки.'
+      : 'Паспорт отражает принятое командой решение. Перед управленческим утверждением проверьте полноту данных, ограничения и согласования.') + '</div>';
+    return html;
+  }
+
   function renderCurrentStep() {
     const step = steps[state.currentStep - 1];
     $('stepTitle').textContent = step.title;
@@ -499,18 +718,27 @@
     if (state.currentStep === 5) content.innerHTML = renderIceStep();
     if (state.currentStep === 6) content.innerHTML = renderHypothesisStep();
     if (state.currentStep === 7) content.innerHTML = renderExperimentStep();
+    if (state.currentStep === 8) content.innerHTML = renderMonthlyFollowupStep();
+    if (state.currentStep === 9) content.innerHTML = renderPassportStep();
 
     bindCurrentStep();
     $('prevStepButton').disabled = state.currentStep === 1;
-    $('nextStepButton').textContent = state.currentStep === steps.length ? 'К завершению проекта' : 'Продолжить →';
+    if (state.currentStep === 7 && !state.followupPublished) {
+      $('nextStepButton').textContent = 'Ожидаем результаты через месяц';
+      $('nextStepButton').disabled = true;
+    } else if (state.currentStep === 9) {
+      $('nextStepButton').textContent = 'Паспорт сформирован';
+      $('nextStepButton').disabled = true;
+    } else {
+      $('nextStepButton').textContent = 'Продолжить →';
+      $('nextStepButton').disabled = false;
+    }
     $('stepPosition').textContent = 'Этап ' + state.currentStep + ' из ' + steps.length;
     $('progressFill').style.width = (state.currentStep / steps.length * 100) + '%';
     $('lockedBanner').classList.toggle('hidden', !state.locked);
     if (state.locked) {
       content.querySelectorAll('input, textarea, select, button[data-edit], button[data-add-cause], button[data-remove-cause], #checkFactsButton').forEach((el) => { el.disabled = true; });
       $('nextStepButton').disabled = true;
-    } else {
-      $('nextStepButton').disabled = false;
     }
   }
 
@@ -895,6 +1123,7 @@
         scheduleSave(el.dataset.fieldKey, el.value);
         updateIceScores();
         if (el.dataset.fieldKey.startsWith('classify_')) updateLadderCheckButton();
+        if (el.dataset.fieldKey === 'followup_decision') renderCurrentStep();
       });
     });
 
@@ -904,6 +1133,20 @@
         const cards = content.querySelectorAll('.choice-card');
         cards.forEach((card) => card.classList.toggle('selected', card.querySelector('input').checked));
         if (el.value === 'custom') renderCurrentStep();
+      });
+    });
+
+    content.querySelectorAll('[data-copy-output]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const output = content.querySelector('#' + CSS.escape(button.dataset.copyOutput));
+        if (!output) return;
+        const text = output.textContent || '';
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = 'Скопировано';
+        } catch (_) {
+          window.prompt('Скопируйте текст:', text);
+        }
       });
     });
 
@@ -1027,14 +1270,34 @@
         return;
       }
     }
-    if (state.currentStep === 5) {
-      const selectedId = textValue('ice_primary_cause_id');
-      const candidates = collectCauseItems().filter((item) => item.status !== 'fact');
-      if (!selectedId || !candidates.some((item) => item.id === selectedId)) {
-        window.alert('Выберите для проверки одну из собственных версий, добавленных на диаграмму Исикавы.');
+    if (state.currentStep === 7 && !state.followupPublished) {
+      window.alert('Месячный этап пока закрыт. Тренер откроет его после публикации результатов проверки.');
+      return;
+    }
+    if (state.currentStep === 8) {
+      const decision = textValue('followup_decision');
+      if (!decision) {
+        window.alert('Выберите решение команды по итогам эксперимента.');
         return;
       }
+      if (!textValue('followup_decision_reason').trim()) {
+        window.alert('Обоснуйте решение команды данными и критериями.');
+        return;
+      }
+      if (decision === 'repeat_refine' || decision === 'repeat_same') {
+        const missing = [
+          ['hadi_hypothesis','новую гипотезу'],
+          ['hadi_action','следующее действие'],
+          ['hadi_data','данные для сбора'],
+          ['hadi_insight','инсайт']
+        ].filter(([key]) => !textValue(key).trim());
+        if (missing.length) {
+          window.alert('Для нового HADI-цикла заполните: ' + missing.map((item) => item[1]).join(', ') + '.');
+          return;
+        }
+      }
     }
+
     const flushed = await flushQueue();
     if (!flushed) {
       window.alert('Не удалось сохранить все изменения. Проверьте соединение и повторите попытку.');
@@ -1053,7 +1316,7 @@
       }
       renderCurrentStep();
     } else {
-      window.alert('План эксперимента подготовлен. Перед реальным запуском его необходимо согласовать в соответствии с правилами производства.');
+      window.alert('Паспорт гипотезы и спич сформированы. Скопируйте материалы и проверьте их перед передачей руководству.');
     }
   }
 
@@ -1140,6 +1403,23 @@
         table: 'workshops',
         filter: 'id=eq.' + state.workshop.id
       }, async (payload) => {
+        const published = Boolean(payload.new && payload.new.followup_published);
+        if (published !== state.followupPublished) {
+          try {
+            await loadMonthlyResults();
+            if (state.followupPublished) {
+              state.maxStep = Math.max(state.maxStep, 8);
+              if (state.currentStep === 7) renderCurrentStep();
+              setConnection('Месячные результаты опубликованы');
+            } else {
+              state.maxStep = Math.min(state.maxStep, 7);
+              state.currentStep = Math.min(state.currentStep, 7);
+              renderCurrentStep();
+            }
+          } catch (error) {
+            console.error('Monthly results refresh:', error);
+          }
+        }
         const nextStatus = payload.new && payload.new.status;
         if (nextStatus === 'locked') {
           state.locked = true;
@@ -1163,6 +1443,9 @@
             stopRealtime();
             state.answers.clear();
             state.team = null;
+            state.followupPublished = false;
+            state.followupPublishedAt = null;
+            state.followupResults = null;
             state.currentStep = 1;
             state.maxStep = 1;
             renderTeams();
