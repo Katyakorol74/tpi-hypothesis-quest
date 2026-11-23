@@ -426,6 +426,12 @@
     html += '<div class="insight-strip"><strong>Важно:</strong> у одного высказывания могут быть две смысловые части. Для пункта 10 ключ допускает интерпретацию или допущение — команда должна объяснить свою логику.</div>';
     html += '<section class="own-ladder-panel"><div class="exercise-kicker">Теперь вернитесь к собственной версии</div><h3>Спуститесь по лестнице назад</h3><p class="muted">Посмотрите на свою первую реакцию в начале кейса. Не переписывайте её задним числом — разберите, как вы пришли к этому решению.</p>';
     html += '<div class="own-work-summary"><small>Первая версия причины</small><p>' + escapeHtml(textValue('team_initial_cause') || 'На первом этапе команда не записала причину.') + '</p><small>Первое предложенное действие</small><p>' + escapeHtml(textValue('team_initial_action') || 'На первом этапе команда не записала действие.') + '</p></div>';
+    html += '<div class="manager-assumptions-review"><div class="eyebrow">Ваши ответы на предыдущем этапе</div><h4>Какие предположения команда увидела за решениями руководителя?</h4><div class="manager-assumptions-grid">';
+    managerActions.forEach((action) => {
+      const answer = textValue(action.key);
+      html += '<div><small>' + escapeHtml(action.title) + '</small><p>' + escapeHtml(answer || 'Команда пока не записала предположение.') + '</p></div>';
+    });
+    html += '<div class="wide"><small>Собранные возможные причины</small><p>' + escapeHtml(textValue('manager_possible_causes') || 'Команда пока не собрала общий список причин.') + '</p></div></div></div>';
     html += '<div class="hypothesis-grid">';
     html += renderTextCard('own_ladder_fact', 'Какие факты действительно подтверждают вашу версию?', 'Отделите наблюдаемые данные от объяснения.', textValue('own_ladder_fact'), false);
     html += renderTextCard('own_ladder_interpretation', 'Как вы интерпретировали эти факты?', 'Какой смысл или оценку вы добавили?', textValue('own_ladder_interpretation'), false);
