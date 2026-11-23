@@ -681,57 +681,75 @@
   }
 
 
+  function monthlyOutcomeLabel(outcome) {
+    return ({
+      met: 'Целевой критерий достигнут',
+      partial: 'Целевой критерий частично достигнут',
+      not_met: 'Целевой критерий не достигнут',
+      inconclusive: 'Недостаточно данных для вывода'
+    })[outcome] || 'Оценка не указана';
+  }
+
   function renderMonthlyFollowupStep() {
     if (!state.followupPublished || !state.followupResults) {
-      return '<div class="monthly-waiting"><div class="eyebrow">Возвращение через месяц</div><h3>Результаты пока не опубликованы</h3><p>Тренер откроет этот этап после сбора результатов месячной проверки. Все предыдущие ответы команды сохранятся.</p></div>';
+      return '<div class="monthly-waiting"><div class="eyebrow">Возвращение к собственной гипотезе</div><h3>Результаты вашей команды ещё не опубликованы</h3><p>Тренер готовит итоги именно вашего эксперимента. Другие команды увидят только свои результаты. Все ваши предыдущие ответы сохранены.</p></div>';
     }
+
     const results = state.followupResults;
-    const before = results.baseline || {};
-    const after = results.after || {};
-    const targets = results.targets || {};
     const decision = textValue('followup_decision');
     const repeatChosen = decision === 'repeat_refine' || decision === 'repeat_same';
     const publishedDate = state.followupPublishedAt ? new Date(state.followupPublishedAt).toLocaleDateString('ru-RU') : '';
-    const rows = [
-      ['Просрочки заказов', before.late_orders_count + ' из ' + before.orders_count + ' (' + before.late_orders_percent + '%)', after.late_orders_count + ' из ' + after.orders_count + ' (' + after.late_orders_percent + '%)', 'не более ' + targets.late_orders_percent_max + '%', Number(after.late_orders_percent) <= Number(targets.late_orders_percent_max) ? 'Выполнен' : 'Не выполнен'],
-      ['Поздние обновления статусов', before.late_status_count + ' из ' + before.late_status_total + ' (' + before.late_status_percent + '%)', after.late_status_count + ' из ' + after.late_status_total + ' (' + after.late_status_percent + '%)', 'не более ' + targets.late_status_percent_max + '%', Number(after.late_status_percent) <= Number(targets.late_status_percent_max) ? 'Выполнен' : 'Не выполнен'],
-      ['Срочные поручения', String(before.urgent_requests), String(after.urgent_requests), 'Отслеживать отдельно', 'Возможный внешний фактор'],
-      ['Среднее время выполнения', '—', '−' + Math.abs(Number(after.average_processing_time_change_percent || 0)) + '%', 'Наблюдать динамику', 'Улучшение'],
-      ['Дополнительная нагрузка руководителя', '—', '+' + after.manager_extra_minutes_per_day + ' минут в день', 'не более ' + targets.manager_extra_minutes_per_day_max + ' минут в день', Number(after.manager_extra_minutes_per_day) <= Number(targets.manager_extra_minutes_per_day_max) ? 'Выполнен' : 'Не выполнен'],
-      ['Удобство для сотрудников', before.employee_convenience + '/5', after.employee_convenience + '/5', 'Не должно ухудшиться', Number(after.employee_convenience) >= Number(before.employee_convenience) ? 'Выполнен' : 'Ухудшилось'],
-      ['Нарушения безопасности и качества', '—', String(after.safety_quality_violations), '0', Number(after.safety_quality_violations) <= Number(targets.safety_quality_violations_max) ? 'Выполнен' : 'Не выполнен']
-    ];
-    let html = '<div class="monthly-intro"><div><div class="eyebrow">Возвращение к проекту · ' + escapeHtml(publishedDate) + '</div><h3>Прошёл месяц. Что показал эксперимент?</h3><p>Сопоставьте фактические данные с критериями, которые вы задали до теста. Не оценивайте эксперимент по одной удачной метрике.</p></div><span class="monthly-published-mark">Результаты опубликованы</span></div>';
-    html += '<div class="monthly-results-table-wrap"><table class="monthly-results-table"><thead><tr><th>Показатель</th><th>До теста</th><th>После теста</th><th>Критерий</th><th>Оценка</th></tr></thead><tbody>';
-    rows.forEach((row) => {
-      const statusClass = row[4] === 'Выполнен' || row[4] === 'Улучшение' ? 'result-good' :
-        row[4] === 'Не выполнен' || row[4] === 'Ухудшилось' ? 'result-bad' : 'result-neutral';
-      html += '<tr><th>' + escapeHtml(row[0]) + '</th><td>' + escapeHtml(row[1]) + '</td><td><strong>' + escapeHtml(row[2]) + '</strong></td><td>' + escapeHtml(row[3]) + '</td><td><span class="result-pill ' + statusClass + '">' + escapeHtml(row[4]) + '</span></td></tr>';
-    });
-    html += '</tbody></table></div>';
-    html += '<div class="monthly-insight-grid"><article><small>Что улучшилось</small><strong>Поздние статусы: 40% → 15%</strong><p>Промежуточный показатель достиг цели не более 20%.</p></article><article><small>Что не достигло цели</small><strong>Просрочки: 35% → 30%</strong><p>Целевой уровень не более 25% не достигнут. Дополнительная нагрузка составила 25 минут при лимите 15 минут в день.</p></article><article><small>Что могло повлиять извне</small><strong>Срочных поручений стало меньше: 12 → 5</strong><p>Часть изменений могла быть вызвана внешними обстоятельствами, а не только вашим решением.</p></article></div>';
-    html += '<div class="monthly-caution"><strong>Ограничения эксперимента</strong><ul>';
-    (results.limitations || []).forEach((item) => { html += '<li>' + escapeHtml(item) + '</li>'; });
-    html += '</ul><p>' + escapeHtml(results.trainer_conclusion || '') + '</p></div>';
-    html += '<section class="monthly-decision"><div class="eyebrow">Решение команды</div><h3>Что делаем дальше?</h3><p>В учебном кейсе наиболее обоснован вариант «Доработать и повторить ограниченный тест»: промежуточный показатель улучшился, но основной критерий и ограничение по нагрузке не выполнены. Повтор должен проверять уточнённую гипотезу, а не просто воспроизводить первый тест.</p>';
+    const outcome = monthlyOutcomeLabel(results.outcome);
+    const outcomeClass = results.outcome === 'met' ? 'result-good' :
+      results.outcome === 'not_met' ? 'result-bad' : 'result-neutral';
+
+    let html = '<div class="monthly-intro"><div><div class="eyebrow">Результат вашей команды · ' + escapeHtml(publishedDate) + '</div><h3>Что показала проверка вашей гипотезы?</h3><p>Сверьте фактический результат с исходным значением и целевым критерием, которые вы зафиксировали для собственного эксперимента.</p></div><span class="monthly-published-mark">Результаты опубликованы вашей команде</span></div>';
+
+    html += '<div class="team-result-main-card"><div class="team-result-main-title"><small>Основная метрика</small><h3>' + escapeHtml(results.metric_name || 'Метрика команды') + (results.metric_unit ? ' · ' + escapeHtml(results.metric_unit) : '') + '</h3><span class="result-pill ' + outcomeClass + '">' + escapeHtml(outcome) + '</span></div>';
+    html += '<div class="team-result-values"><div><small>Baseline · до теста</small><strong>' + escapeHtml(results.baseline_value || '—') + '</strong></div><div><small>Целевое значение</small><strong>' + escapeHtml(results.target_value || '—') + '</strong></div><div><small>Фактический результат</small><strong>' + escapeHtml(results.actual_value || '—') + '</strong></div></div>';
+    if (results.sample_period) html += '<p class="team-result-sample"><strong>Выборка и период:</strong> ' + escapeHtml(results.sample_period) + '</p>';
+    html += '</div>';
+
+    const details = [
+      ['Дополнительные показатели и наблюдения', results.supporting_metrics],
+      ['Побочные эффекты и влияние на процесс', results.side_effects],
+      ['Внешние факторы и альтернативные объяснения', results.external_factors],
+      ['Ограничения данных', results.limitations]
+    ].filter((row) => row[1] && String(row[1]).trim());
+
+    if (details.length) {
+      html += '<div class="team-result-details-grid">';
+      details.forEach(([title,value]) => {
+        html += '<article><small>' + escapeHtml(title) + '</small><p>' + escapeHtml(value) + '</p></article>';
+      });
+      html += '</div>';
+    }
+    if (results.trainer_conclusion) {
+      html += '<div class="monthly-caution"><strong>Комментарий тренера</strong><p>' + escapeHtml(results.trainer_conclusion) + '</p></div>';
+    }
+
+    html += '<section class="monthly-decision"><div class="eyebrow">Решение команды</div><h3>Что делаем дальше?</h3><p>Не воспринимайте один тест как окончательный вердикт. Даже если целевой показатель достигнут, повторная проверка на сопоставимых условиях может подтвердить устойчивость результата. Если цель не достигнута — доработайте гипотезу и проверьте её ещё раз.</p>';
     html += '<label class="monthly-select-label" for="followupDecision">Наше решение</label><select id="followupDecision" data-field-key="followup_decision" ' + (state.locked ? 'disabled' : '') + '><option value="">Выберите решение…</option>';
     [
-      ['repeat_refine','Доработать и повторить ограниченный тест — рекомендуемый вариант'],
-      ['repeat_same','Повторить тест без изменений'],
-      ['scale','Масштабировать текущее решение'],
-      ['stop','Отказаться от текущего решения']
-    ].forEach(([value,label]) => { html += '<option value="' + value + '" ' + (decision === value ? 'selected' : '') + '>' + escapeHtml(label) + '</option>'; });
+      ['repeat_refine','Доработать гипотезу и повторить ограниченный тест — рекомендуемый вариант'],
+      ['repeat_same','Повторить тест без изменений, чтобы подтвердить результат'],
+      ['scale','Масштабировать решение'],
+      ['stop','Отказаться от текущей гипотезы']
+    ].forEach(([value,label]) => {
+      html += '<option value="' + value + '" ' + (decision === value ? 'selected' : '') + '>' + escapeHtml(label) + '</option>';
+    });
     html += '</select>';
-    html += renderTextCard('followup_decision_reason', 'Почему команда принимает это решение?', 'Опирайтесь на метрики, критерии успеха, побочные эффекты и ограничения данных.', textValue('followup_decision_reason'), true);
+    html += renderTextCard('followup_decision_reason', 'Почему команда принимает это решение?', 'Опирайтесь на результат именно вашего теста, критерий, побочные эффекты и ограничения данных.', textValue('followup_decision_reason'), true);
+
     if (repeatChosen) {
-      html += '<div class="hadi-cycle-panel"><div class="hadi-cycle-heading"><div class="eyebrow">Следующая итерация · HADI</div><h3>Запустите новый цикл на основе инсайта</h3><p>Не повторяйте старую гипотезу автоматически. Возможный вопрос следующего цикла из сценария: можно ли сохранить раннее выявление рисков, если проводить разбор только по заказам с формализованными признаками риска? Сформулируйте собственную версию.</p></div><div class="hadi-cycle-flow"><span><b>H</b> Hypothesis</span><i>→</i><span><b>A</b> Action</span><i>→</i><span><b>D</b> Data</span><i>→</i><span><b>I</b> Insight</span><i>↺</i></div><div class="hadi-fields">';
+      html += '<div class="hadi-cycle-panel"><div class="hadi-cycle-heading"><div class="eyebrow">Следующая итерация · HADI</div><h3>Постройте новый цикл на основе собственного результата</h3><p>Уточните гипотезу так, чтобы следующий тест устранял слабое место первого эксперимента или проверял устойчивость полученного эффекта.</p></div><div class="hadi-cycle-flow"><span><b>H</b> Hypothesis</span><i>→</i><span><b>A</b> Action</span><i>→</i><span><b>D</b> Data</span><i>→</i><span><b>I</b> Insight</span><i>↺</i></div><div class="hadi-fields">';
       html += renderTextCard('hadi_hypothesis', 'H · Новая гипотеза', 'Какое уточнённое предположение проверим в следующем цикле?', textValue('hadi_hypothesis'), true);
       html += renderTextCard('hadi_action', 'A · Действие', 'Какой небольшой и безопасный повторный тест проведём? Что изменим по сравнению с первой версией?', textValue('hadi_action'), true);
-      html += renderTextCard('hadi_data', 'D · Данные', 'Что будем собирать: основной показатель, промежуточные метрики, нагрузку, срочные поручения, качество и безопасность?', textValue('hadi_data'), true);
-      html += renderTextCard('hadi_insight', 'I · Инсайт', 'Что результаты первого цикла уже рассказали о системе? Какое новое понимание легло в основу следующей гипотезы?', textValue('hadi_insight'), true);
+      html += renderTextCard('hadi_data', 'D · Данные', 'Какие значения, выборку, период и дополнительные показатели будем собирать?', textValue('hadi_data'), true);
+      html += renderTextCard('hadi_insight', 'I · Инсайт', 'Что результаты первого цикла рассказали именно о вашей гипотезе? Какое новое понимание появилось?', textValue('hadi_insight'), true);
       html += '</div></div>';
     } else if (decision) {
-      html += '<div class="monthly-decision-note">При выбранном решении HADI-повтор не формируется. Зафиксируйте обоснование и условия, при которых решение можно будет пересмотреть.</div>';
+      html += '<div class="monthly-decision-note">HADI-повтор не выбран. Обоснование решения и его условия будут включены в паспорт гипотезы.</div>';
     }
     html += '</section>';
     return html;
@@ -760,6 +778,11 @@
     })[textValue('followup_decision')] || 'Решение не выбрано';
   }
 
+  function reportValueFromObject(object, key) {
+    const value = object && object[key];
+    return value === null || value === undefined || String(value).trim() === '' ? 'Не указано' : String(value);
+  }
+
   function buildPassportText() {
     const cause = selectedCauseForReport();
     const ratings = rawValue('ice_ratings') && typeof rawValue('ice_ratings') === 'object' ? rawValue('ice_ratings') : {};
@@ -769,8 +792,6 @@
     const problem = textValue('problem_choice') === 'custom' ? reportValue('problem_custom') :
       (problemChoice ? problemChoice.title : 'Нарушение сроков выполнения заказов');
     const result = state.followupResults || {};
-    const before = result.baseline || {};
-    const after = result.after || {};
     const methodsList = selectedMethodNames();
     const allCauses = collectCauseItems();
     const categoryTitle = (key) => {
@@ -794,9 +815,7 @@
       problem,
       '',
       '2. ФАКТЫ И ИСХОДНАЯ ТОЧКА',
-      'Просрочки: ' + before.late_orders_count + ' из ' + before.orders_count + ' (' + before.late_orders_percent + '%).',
-      'Поздние статусы: ' + before.late_status_count + ' из ' + before.late_status_total + ' (' + before.late_status_percent + '%).',
-      'Срочные поручения: ' + before.urgent_requests + '.',
+      'Факты по проблеме и контекст: ' + reportValue('team_initial_evidence'),
       'Факты, на которые опиралась команда: ' + reportValue('team_initial_evidence'),
       'Первая версия причины команды: ' + reportValue('team_initial_cause'),
       'Первое предложенное действие команды: ' + reportValue('team_initial_action'),
@@ -833,13 +852,15 @@
       'Ответственные: ' + reportValue('experiment_owner'),
       '',
       '7. РЕЗУЛЬТАТЫ МЕСЯЧНОЙ ПРОВЕРКИ',
-      'Просрочки: ' + before.late_orders_percent + '% → ' + after.late_orders_percent + '% (цель ≤25%).',
-      'Поздние статусы: ' + before.late_status_percent + '% → ' + after.late_status_percent + '% (цель ≤20%).',
-      'Срочные поручения: ' + before.urgent_requests + ' → ' + after.urgent_requests + '.',
-      'Среднее время выполнения: −' + Math.abs(Number(after.average_processing_time_change_percent || 0)) + '%.',
-      'Дополнительная нагрузка руководителя: +' + after.manager_extra_minutes_per_day + ' минут/день (лимит ≤15).',
-      'Удобство для сотрудников: ' + before.employee_convenience + '/5 → ' + after.employee_convenience + '/5.',
-      'Нарушения безопасности и качества: ' + after.safety_quality_violations + '.',
+      'Основная метрика: ' + reportValueFromObject(result, 'metric_name') + ' (' + reportValueFromObject(result, 'metric_unit') + ').',
+      'Baseline: ' + reportValueFromObject(result, 'baseline_value') + '. Цель: ' + reportValueFromObject(result, 'target_value') + '. Фактическое значение: ' + reportValueFromObject(result, 'actual_value') + '.',
+      'Оценка результата: ' + monthlyOutcomeLabel(result.outcome) + '.',
+      'Выборка и период: ' + reportValueFromObject(result, 'sample_period') + '.',
+      'Дополнительные показатели: ' + reportValueFromObject(result, 'supporting_metrics'),
+      'Побочные эффекты: ' + reportValueFromObject(result, 'side_effects'),
+      'Внешние факторы: ' + reportValueFromObject(result, 'external_factors'),
+      'Ограничения данных: ' + reportValueFromObject(result, 'limitations'),
+      'Комментарий тренера: ' + reportValueFromObject(result, 'trainer_conclusion'),
       '',
       '8. РЕШЕНИЕ И СЛЕДУЮЩИЙ ШАГ',
       decisionLabel(),
@@ -849,7 +870,7 @@
       repeatChosen ? 'D · Данные: ' + reportValue('hadi_data') : '',
       repeatChosen ? 'I · Инсайт: ' + reportValue('hadi_insight') : '',
       '',
-      'Ограничения: выборка 20 заказов; контрольной группы нет; число срочных поручений изменилось и является возможным альтернативным объяснением.'
+      'Ограничения: ' + reportValueFromObject(result, 'limitations')
     ];
     return lines.filter((line,index) => line !== '' || lines[index - 1] !== '').join('\n');
   }
@@ -857,8 +878,6 @@
   function buildManagementPitch() {
     const cause = selectedCauseForReport();
     const result = state.followupResults || {};
-    const before = result.baseline || {};
-    const after = result.after || {};
     const repeatChosen = ['repeat_refine','repeat_same'].includes(textValue('followup_decision'));
     const problemChoice = problemOptions.find((item) => item.value === textValue('problem_choice'));
     const problem = textValue('problem_choice') === 'custom' ? reportValue('problem_custom') :
@@ -871,8 +890,9 @@
       'Наша гипотеза: если ' + reportValue('hypothesis_if') + ', то ' + reportValue('hypothesis_then') + ', потому что ' + reportValue('hypothesis_because') + '.',
       'Для проверки мы спроектировали ограниченный тест: ' + reportValue('experiment_action') + '.',
       '',
-      'Через месяц доля просрочек изменилась с ' + before.late_orders_percent + '% до ' + after.late_orders_percent + '% при цели не более 25%; поздние статусы улучшились с ' + before.late_status_percent + '% до ' + after.late_status_percent + '%; дополнительная нагрузка руководителя составила плюс ' + after.manager_extra_minutes_per_day + ' минут в день при лимите 15 минут.',
-      'Одновременно число срочных поручений сократилось с ' + before.urgent_requests + ' до ' + after.urgent_requests + ', поэтому нельзя приписать изменение показателей только эксперименту. Выборка составила 20 заказов, контрольной группы не было.',
+      'По метрике «' + reportValueFromObject(result, 'metric_name') + '» получили: baseline — ' + reportValueFromObject(result, 'baseline_value') + ', цель — ' + reportValueFromObject(result, 'target_value') + ', фактический результат — ' + reportValueFromObject(result, 'actual_value') + '. Оценка: ' + monthlyOutcomeLabel(result.outcome) + '.',
+      'Выборка и период: ' + reportValueFromObject(result, 'sample_period') + '. Дополнительные показатели: ' + reportValueFromObject(result, 'supporting_metrics') + '.',
+      'Побочные эффекты: ' + reportValueFromObject(result, 'side_effects') + '. Внешние факторы: ' + reportValueFromObject(result, 'external_factors') + '. Ограничения: ' + reportValueFromObject(result, 'limitations') + '.',
       '',
       'Решение команды: ' + decisionLabel() + '.',
       'Обоснование: ' + reportValue('followup_decision_reason') + '.',
@@ -1643,6 +1663,21 @@
           } else {
             await openWorkspace();
           }
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'team_followup_results',
+        filter: 'team_id=eq.' + state.team.id
+      }, async () => {
+        try {
+          await loadMonthlyResults();
+          if (state.followupPublished) state.maxStep = Math.max(state.maxStep, 8);
+          if (state.currentStep >= 7) renderCurrentStep();
+          setConnection(state.followupPublished ? 'Результаты проверки опубликованы вашей команде' : 'Командная синхронизация активна');
+        } catch (error) {
+          console.error('Refresh team-specific follow-up:', error);
         }
       })
       .subscribe((status) => {
