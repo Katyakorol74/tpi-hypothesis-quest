@@ -1217,49 +1217,6 @@
     return items.filter((item) => item.text.trim());
   }
 
-  function collectPriorVersions() {
-    const entries = [
-      { key: 'team_initial_cause', title: 'Первая версия причины команды', text: textValue('team_initial_cause') },
-      { key: 'own_ladder_fact', title: 'Факты, на которые опиралась команда', text: textValue('own_ladder_fact') || textValue('team_initial_evidence') },
-      { key: 'own_ladder_selection', title: 'Отбор информации командой', text: textValue('own_ladder_selection') },
-      { key: 'own_ladder_interpretation', title: 'Интерпретация команды', text: textValue('own_ladder_interpretation') || textValue('team_initial_cause') },
-      { key: 'own_ladder_assumption', title: 'Допущение команды', text: textValue('own_ladder_assumption') },
-      { key: 'own_ladder_conclusion', title: 'Вывод команды', text: textValue('own_ladder_conclusion') },
-      { key: 'own_ladder_belief', title: 'Убеждение команды', text: textValue('own_ladder_belief') },
-      { key: 'own_ladder_action', title: 'Первоначальное действие команды', text: textValue('own_ladder_action') || textValue('team_initial_action') },
-      { key: 'own_ladder_ignored', title: 'Данные, которые команда могла упустить', text: textValue('own_ladder_ignored') },
-      { key: 'manager_possible_causes', title: 'Отдельно: возможные причины за решениями руководителя', text: textValue('manager_possible_causes') }
-    ];
-    managerActions.forEach((action) => {
-      entries.push({ key: action.key, title: 'Предположение за решением «' + action.title + '»', text: textValue(action.key) });
-    });
-    const transferred = new Set(collectCauseItems().map((item) => item.sourceKey).filter(Boolean));
-    return entries.filter((entry) => entry.text && entry.text.trim()).map((entry) => ({
-      ...entry,
-      transferred: transferred.has(entry.key)
-    }));
-  }
-
-  function transferPriorVersion(sourceKey) {
-    const source = collectPriorVersions().find((entry) => entry.key === sourceKey);
-    if (!source || source.transferred) return;
-    const select = $('stepContent').querySelector('[data-transfer-category="' + sourceKey + '"]');
-    const category = select ? select.value : '';
-    if (!category) {
-      window.alert('Сначала выберите ветвь диаграммы, куда перенести эту версию.');
-      return;
-    }
-    const id = makeCauseId();
-    scheduleSave('cause_' + category + '_' + id, {
-      id,
-      category,
-      text: source.text,
-      status: 'hypothesis',
-      sourceKey
-    });
-    renderCurrentStep();
-  }
-
   function updateCause(id, patch) {
     const item = collectCauseItems().find((cause) => cause.id === id);
     if (!item) return;
@@ -1312,24 +1269,9 @@
     const problemText = textValue('problem_choice') === 'custom'
       ? (textValue('problem_custom') || 'Собственная формулировка команды')
       : (chosenProblem ? chosenProblem.title : '18 из 60 заказов за три месяца выполнены с нарушением срока');
-    const priorVersions = collectPriorVersions();
     const allCauses = collectCauseItems();
 
-    let html = '<div class="fishbone-intro"><div><div class="eyebrow">Системный анализ · 6 направлений</div><h3>Продолжите исследование собственной версии</h3><p>Ниже собраны ваши наработки с предыдущих этапов. Перенесите важные версии в подходящие ветви. Добавьте новые причины, если они появились в обсуждении.</p></div><div class="fishbone-status-legend"><span class="tag fact">Факт</span><span class="tag hypothesis">Предположение</span><span class="tag unknown">Неизвестно</span></div></div>';
-
-    if (priorVersions.length) {
-      html += '<section class="prior-work-panel"><div class="exercise-kicker">Наработки команды с предыдущих этапов</div><h3>Не начинайте анализ заново — используйте то, что уже сформулировали</h3><div class="prior-work-list">';
-      priorVersions.forEach((entry) => {
-        html += '<article class="prior-work-card"><div><small>' + escapeHtml(entry.title) + '</small><p>' + escapeHtml(entry.text) + '</p></div><div class="prior-work-actions"><select data-transfer-category="' + escapeHtml(entry.key) + '"><option value="">Выберите ветвь…</option>';
-        fishboneCategories.forEach((cat) => {
-          html += '<option value="' + cat.key + '">' + escapeHtml(cat.title) + '</option>';
-        });
-        html += '</select><button type="button" class="button ' + (entry.transferred ? 'secondary' : 'primary') + '" data-transfer-prior="' + escapeHtml(entry.key) + '" ' + (entry.transferred || state.locked ? 'disabled' : '') + '>' + (entry.transferred ? 'Перенесено' : 'Перенести в Исикаву') + '</button></div></article>';
-      });
-      html += '</div></section>';
-    } else {
-      html += '<div class="prior-work-empty">На предыдущих этапах команда пока не записала собственные версии. Можно начать с фактов и вопросов, уже представленных в диаграмме.</div>';
-    }
+    let html = '<div class="fishbone-intro"><div><div class="eyebrow">Системный анализ · 6 направлений</div><h3>Продолжите исследование собственной версии</h3><p>Исследуйте проблему по шести направлениям. Разделяйте подтверждённые факты, предположения и неизвестные факторы. Добавляйте причины, которые команда выявляет в обсуждении.</p></div><div class="fishbone-status-legend"><span class="tag fact">Факт</span><span class="tag hypothesis">Предположение</span><span class="tag unknown">Неизвестно</span></div></div>';
 
     html += '<div class="fishbone-board"><svg class="fishbone-connectors" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true"><defs><marker id="fishboneArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#d94b3d"/></marker></defs><path d="M38 350 L1000 350" stroke="#173047" stroke-width="7" stroke-linecap="round" marker-end="url(#fishboneArrow)"/><path d="M205 350 L145 115 M535 350 L535 115 M850 350 L925 115 M355 350 L290 585 M690 350 L690 585 M1035 350 L1090 585" stroke="#7e9aa8" stroke-width="4" stroke-linecap="round" fill="none"/></svg><div class="fishbone-grid">';
     fishboneCategories.forEach((cat) => {
@@ -1480,9 +1422,6 @@
 
     content.querySelectorAll('[data-add-cause]').forEach((button) => {
       button.addEventListener('click', () => addCause(button.dataset.addCause));
-    });
-    content.querySelectorAll('[data-transfer-prior]').forEach((button) => {
-      button.addEventListener('click', () => transferPriorVersion(button.dataset.transferPrior));
     });
     content.querySelectorAll('[data-remove-cause]').forEach((button) => {
       button.addEventListener('click', () => removeCauseItem(button.dataset.removeCause));
